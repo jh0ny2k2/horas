@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { Capacitor } from '@capacitor/core'
 
 const AuthContext = createContext({})
 
@@ -34,13 +35,26 @@ export function AuthProvider({ children }) {
     if (error) throw error
   }
 
+  const signInWithGoogle = async () => {
+    const isNative = Capacitor.isNativePlatform()
+    const redirectTo = isNative
+      ? 'com.example.proyectojulia://callback'
+      : `${window.location.origin}/`
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo }
+    })
+    if (error) throw error
+  }
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   )
