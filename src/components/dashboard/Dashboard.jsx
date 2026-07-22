@@ -10,7 +10,8 @@ import ErrorMessage from '../ui/ErrorMessage'
 import { useNavigate } from 'react-router-dom'
 
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const hourlyRate = Number(profile?.hourly_rate || 0)
   const navigate = useNavigate()
   const [shifts, setShifts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -45,12 +46,16 @@ export default function Dashboard() {
   const { start: weekStart, end: weekEnd } = getWeekRange(today)
   const { start: monthStart, end: monthEnd } = getMonthRange(today)
 
-  const todayShifts = shifts.filter(s => s.work_date === todayStr)
-  const weekShifts = shifts.filter(s => {
+  const approvedShifts = shifts.filter(s => s.approved)
+  const pendingShifts = shifts.filter(s => !s.approved)
+  const pendingCount = pendingShifts.length
+
+  const todayShifts = approvedShifts.filter(s => s.work_date === todayStr)
+  const weekShifts = approvedShifts.filter(s => {
     const d = new Date(s.work_date)
     return d >= weekStart && d <= weekEnd
   })
-  const monthShifts = shifts.filter(s => {
+  const monthShifts = approvedShifts.filter(s => {
     const d = new Date(s.work_date)
     return d >= monthStart && d <= monthEnd
   })
@@ -58,9 +63,10 @@ export default function Dashboard() {
   const todayHours = todayShifts.reduce((acc, s) => acc + Number(s.total_hours), 0)
   const weekHours = weekShifts.reduce((acc, s) => acc + Number(s.total_hours), 0)
   const monthHours = monthShifts.reduce((acc, s) => acc + Number(s.total_hours), 0)
-  const totalHours = shifts.reduce((acc, s) => acc + Number(s.total_hours), 0)
+  const totalHours = approvedShifts.reduce((acc, s) => acc + Number(s.total_hours), 0)
 
   const todayDays = weekShifts.length
+
   const avgDay = todayDays > 0 ? (weekHours / todayDays) : 0
 
   if (loading) return <LoadingSpinner text="Cargando resumen..." />
@@ -81,6 +87,22 @@ export default function Dashboard() {
       </div>
 
       <ErrorMessage message={error} onDismiss={() => setError('')} />
+
+      {pendingCount > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-yellow-800">
+              {pendingCount} turno{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''} de aprobación
+            </p>
+            <p className="text-xs text-yellow-600">Tu jefe debe aprobarlas para que cuenten</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 stagger">
         <SummaryCard
@@ -117,14 +139,14 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 gap-3 stagger">
           <SummaryCard
             label="Ganado este mes"
-            value={`$${(monthHours * 7.80).toFixed(2)}`}
+            value={`$${(monthHours * hourlyRate).toFixed(2)}`}
             subtitle={formatHours(monthHours)}
             icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             color="gold"
           />
           <SummaryCard
             label="Ganado en total"
-            value={`$${(totalHours * 7.80).toFixed(2)}`}
+            value={`$${(totalHours * hourlyRate).toFixed(2)}`}
             subtitle={formatHours(totalHours)}
             icon="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
             color="blue"
@@ -158,14 +180,18 @@ export default function Dashboard() {
                 key={shift.id}
                 className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0"
               >
-                <div>
-                  <p className="text-sm font-medium text-slate-700">
-                    {formatDate(shift.work_date)}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
-                    {shift.break_minutes > 0 && ` · ${shift.break_minutes}min`}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${shift.approved ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">
+                      {formatDate(shift.work_date)}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
+                      {shift.break_minutes > 0 && ` · ${shift.break_minutes}min`}
+                      {!shift.approved && ' · Pendiente'}
+                    </p>
+                  </div>
                 </div>
                 <p className="text-sm font-semibold text-slate-700 tabular-nums">
                   {formatHours(shift.total_hours)}h

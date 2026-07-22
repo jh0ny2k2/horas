@@ -82,6 +82,7 @@ export default function WorkShiftForm({ editShift = null, onSaved }) {
         break_minutes: breakMins,
         notes: formData.notes || '',
         total_hours: total,
+        approved: false,
       }
 
       if (isEditing) {

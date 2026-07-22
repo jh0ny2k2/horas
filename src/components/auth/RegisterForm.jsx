@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import ErrorMessage from '../ui/ErrorMessage'
 
 export default function RegisterForm() {
@@ -12,6 +12,8 @@ export default function RegisterForm() {
   const [success, setSuccess] = useState(false)
   const { signUp, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const joinToken = searchParams.get('join')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -53,8 +55,8 @@ export default function RegisterForm() {
             Hemos enviado un enlace de confirmación a <strong className="text-slate-600">{email}</strong>.
             Revisa tu bandeja de entrada.
           </p>
-          <button onClick={() => navigate('/auth/login')} className="btn-primary">
-            Ir a iniciar sesión
+          <button onClick={() => navigate(joinToken ? `/join/${joinToken}` : '/auth/login')} className="btn-primary">
+            {joinToken ? 'Continuar al enlace' : 'Ir a iniciar sesión'}
           </button>
         </div>
       </div>

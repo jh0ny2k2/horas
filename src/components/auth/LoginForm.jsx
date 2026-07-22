@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import ErrorMessage from '../ui/ErrorMessage'
 
 export default function LoginForm() {
@@ -10,6 +10,8 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false)
   const { signIn, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const joinToken = searchParams.get('join')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -17,7 +19,7 @@ export default function LoginForm() {
     setLoading(true)
     try {
       await signIn(email, password)
-      navigate('/')
+      navigate(joinToken ? `/join/${joinToken}` : '/')
     } catch (err) {
       setError(err.message === 'Invalid login credentials'
         ? 'Correo o contraseña incorrectos'
@@ -94,7 +96,7 @@ export default function LoginForm() {
 
         <p className="text-center text-sm text-slate-400 mt-8">
           ¿No tienes cuenta?{' '}
-          <Link to="/auth/register" className="text-gold font-medium hover:text-gold/80 transition-colors">
+          <Link to={joinToken ? `/auth/register?join=${joinToken}` : '/auth/register'} className="text-gold font-medium hover:text-gold/80 transition-colors">
             Crear cuenta
           </Link>
         </p>

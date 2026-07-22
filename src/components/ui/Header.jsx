@@ -1,10 +1,16 @@
 import { useAuth } from '../../contexts/AuthContext'
 
 export default function Header() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, profile, company } = useAuth()
 
   const displayName = user?.email?.split('@')[0] || 'Usuario'
   const greeting = getGreeting()
+
+  const roleLabel = profile?.role === 'company_owner'
+    ? company?.name || 'Empresa'
+    : profile?.role === 'employee'
+      ? 'Empleado'
+      : 'Persona'
 
   return (
     <header className="sticky top-0 z-40 bg-ivory/80 backdrop-blur-xl border-b border-slate-200/50">
@@ -15,6 +21,7 @@ export default function Header() {
             <h1 className="text-xl font-bold text-slate-800 mt-0.5">
               {greeting}, <span className="text-gold">{displayName}</span>
             </h1>
+            <p className="text-[11px] text-slate-400 mt-0.5">{roleLabel}</p>
           </div>
           <button
             onClick={signOut}
