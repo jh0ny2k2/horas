@@ -6,9 +6,10 @@ import ErrorMessage from '../ui/ErrorMessage'
 import { useNavigate } from 'react-router-dom'
 
 export default function WorkShiftForm({ editShift = null, onSaved }) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const isEditing = !!editShift
+  const isIndividual = profile?.role === 'individual'
 
   const [formData, setFormData] = useState({
     work_date: editShift?.work_date || new Date().toISOString().split('T')[0],
@@ -82,7 +83,7 @@ export default function WorkShiftForm({ editShift = null, onSaved }) {
         break_minutes: breakMins,
         notes: formData.notes || '',
         total_hours: total,
-        approved: false,
+        approved: isIndividual,
       }
 
       if (isEditing) {
