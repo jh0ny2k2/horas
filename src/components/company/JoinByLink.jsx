@@ -169,7 +169,7 @@ export default function JoinByLink() {
           <div className="bg-white/80 rounded-2xl p-4 mb-6 text-left">
             <div className="flex items-center justify-between py-2">
               <span className="text-sm text-slate-500">Tarifa horaria</span>
-              <span className="text-sm font-semibold text-slate-700">${Number(invitation.hourly_rate || 0).toFixed(2)}/hora</span>
+              <span className="text-sm font-semibold text-slate-700">€{Number(invitation.hourly_rate || 0).toFixed(2)}/hora</span>
             </div>
             <div className="border-t border-slate-100 my-1"></div>
             <div className="flex items-center justify-between py-2">

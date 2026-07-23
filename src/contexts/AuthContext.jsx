@@ -46,22 +46,35 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        loadProfile(session.user.id).finally(() => setLoading(false))
-      } else {
+      const u = session?.user ?? null
+      if (u && !u.email_confirmed_at) {
+        supabase.auth.signOut()
+        setUser(null)
         setLoading(false)
+      } else {
+        setUser(u)
+        if (u) {
+          loadProfile(u.id).finally(() => setLoading(false))
+        } else {
+          setLoading(false)
+        }
       }
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        loadProfile(session.user.id)
+      const u = session?.user ?? null
+      if (u && !u.email_confirmed_at) {
+        supabase.auth.signOut()
+        setUser(null)
       } else {
-        setProfile(null)
-        setCompany(null)
+        setUser(u)
+        if (u) {
+          loadProfile(u.id)
+        } else {
+          setProfile(null)
+          setCompany(null)
+        }
       }
       setLoading(false)
     })
@@ -75,8 +88,15 @@ export function AuthProvider({ children }) {
   }
 
   const signIn = async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
+
+    if (data.user && !data.user.email_confirmed_at) {
+      await supabase.auth.signOut()
+      throw new Error('Debes confirmar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada.')
+    }
+
+    return data
   }
 
   const signInWithGoogle = async () => {
@@ -84,7 +104,10 @@ export function AuthProvider({ children }) {
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo }
+      options: {
+        redirectTo,
+        skipBrowserRedirect: false,
+      }
     })
     if (error) throw error
   }

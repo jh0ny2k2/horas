@@ -153,7 +153,7 @@ export default function EmployeeList() {
               <input type="text" value={inviteName} onChange={e => setInviteName(e.target.value)} className="input-field" placeholder="Ej: Carlos García" />
             </div>
             <div>
-              <label className="label">Tarifa por hora ($)</label>
+              <label className="label">Tarifa por hora (€)</label>
               <input type="number" min="0" step="0.01" value={inviteRate} onChange={e => setInviteRate(e.target.value)} className="input-field" placeholder={`Default: ${company?.default_rate || 0}`} />
             </div>
             <button type="submit" disabled={inviteLoading} className="btn-primary">
@@ -228,7 +228,7 @@ export default function EmployeeList() {
                     </div>
                   ) : (
                     <button onClick={() => { setEditingMember(member.id); setNewRate(member.hourly_rate || '') }} className="text-sm text-slate-600 hover:text-gold transition-colors">
-                      ${Number(member.hourly_rate || 0).toFixed(2)}/hora
+                      €{Number(member.hourly_rate || 0).toFixed(2)}/hora
                     </button>
                   )}
                 </div>

@@ -131,7 +131,7 @@ export default function RoleSelection() {
             <ErrorMessage message={error} onDismiss={() => setError('')} />
 
             <div>
-              <label className="label" htmlFor="rate">Tarifa por hora ($)</label>
+              <label className="label" htmlFor="rate">Tarifa por hora (€)</label>
               <input
                 id="rate"
                 type="number"
@@ -193,7 +193,7 @@ export default function RoleSelection() {
             </div>
 
             <div>
-              <label className="label" htmlFor="company-rate">Tarifa default por hora ($)</label>
+              <label className="label" htmlFor="company-rate">Tarifa default por hora (€)</label>
               <input
                 id="company-rate"
                 type="number"

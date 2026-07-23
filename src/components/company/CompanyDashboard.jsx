@@ -137,7 +137,7 @@ export default function CompanyDashboard() {
         />
         <SummaryCard
           label="Costo estimado"
-          value={`$${totalCost.toFixed(2)}`}
+          value={`€${totalCost.toFixed(2)}`}
           subtitle={formatHours(totalMonthHours)}
           icon="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
           color="purple"
@@ -183,7 +183,7 @@ export default function CompanyDashboard() {
                         {emp.email?.split('@')[0] || 'Empleado'}
                       </p>
                       <p className="text-xs text-slate-400">
-                        ${Number(emp.hourly_rate || 0).toFixed(2)}/hora
+                        €{Number(emp.hourly_rate || 0).toFixed(2)}/hora
                       </p>
                     </div>
                   </div>
@@ -193,7 +193,7 @@ export default function CompanyDashboard() {
                         {formatHours(empMonthHours)}
                       </p>
                       <p className="text-xs text-slate-400">
-                        ${empCost.toFixed(2)}
+                        €{empCost.toFixed(2)}
                       </p>
                     </div>
                     <svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">

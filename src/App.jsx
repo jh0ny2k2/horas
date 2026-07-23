@@ -14,6 +14,7 @@ import JoinByLink from './components/company/JoinByLink'
 import WorkShiftForm from './components/shifts/WorkShiftForm'
 import History from './components/history/History'
 import Statistics from './components/stats/Statistics'
+import Payments from './components/payments/Payments'
 import Settings from './components/settings/Settings'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 
@@ -78,6 +79,7 @@ export default function App() {
             <Route path="/register" element={<WorkShiftForm />} />
             <Route path="/history" element={<History />} />
             <Route path="/stats" element={<Statistics />} />
+            <Route path="/payments" element={<Payments />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/company/employees" element={<EmployeeList />} />
             <Route path="/company/employee/:employeeId" element={<EmployeeDetail />} />

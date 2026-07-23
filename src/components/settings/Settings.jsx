@@ -95,7 +95,7 @@ export default function Settings() {
               placeholder="0.00"
             />
           </div>
-          <span className="text-sm text-slate-400">$/hora</span>
+          <span className="text-sm text-slate-400">€/hora</span>
         </div>
 
         <button

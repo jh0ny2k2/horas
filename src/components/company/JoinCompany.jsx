@@ -142,7 +142,7 @@ export default function JoinCompany() {
 
             <div className="bg-slate-50 rounded-xl p-3 mb-4">
               <p className="text-sm text-slate-600">
-                <span className="font-medium">Tarifa:</span> ${Number(invitation.hourly_rate || 0).toFixed(2)}/hora
+                <span className="font-medium">Tarifa:</span> €{Number(invitation.hourly_rate || 0).toFixed(2)}/hora
               </p>
             </div>
 

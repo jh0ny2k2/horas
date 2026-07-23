@@ -129,7 +129,7 @@ export default function EmployeeDetail() {
           <div>
             <h2 className="text-lg font-semibold text-slate-700">{employee.email?.split('@')[0]}</h2>
             <p className="text-sm text-slate-400">{employee.email}</p>
-            <p className="text-sm text-gold font-medium">${Number(employee.hourly_rate || 0).toFixed(2)}/hora</p>
+            <p className="text-sm text-gold font-medium">€{Number(employee.hourly_rate || 0).toFixed(2)}/hora</p>
           </div>
         </div>
       </div>
@@ -161,7 +161,7 @@ export default function EmployeeDetail() {
             <SummaryCard label="Hoy" value={formatHours(todayHours)} subtitle="aprobadas" icon="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" color="gold" />
             <SummaryCard label="Semana" value={formatHours(weekHours)} subtitle="aprobadas" icon="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2z" color="blue" />
             <SummaryCard label="Mes" value={formatHours(monthHours)} subtitle="aprobadas" icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" color="green" />
-            <SummaryCard label="Costo total" value={`$${totalCost.toFixed(2)}`} subtitle={`${formatHours(totalHours)} aprobadas`} icon="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" color="purple" />
+            <SummaryCard label="Costo total" value={`€${totalCost.toFixed(2)}`} subtitle={`${formatHours(totalHours)} aprobadas`} icon="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" color="purple" />
           </div>
 
           {approvedShifts.length > 0 && (
