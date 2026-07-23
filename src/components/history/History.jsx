@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { getWeekRange, getMonthRange } from '../../lib/calculations'
@@ -217,7 +218,7 @@ export default function History() {
       <ShiftDetailModal shift={viewingShift} onClose={() => setViewingShift(null)} />
 
       {/* Delete confirmation modal */}
-      {deleteConfirm && (
+      {deleteConfirm && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-premium-lg animate-slide-up">
             <div className="p-6">
@@ -259,7 +260,8 @@ export default function History() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

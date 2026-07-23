@@ -1,9 +1,10 @@
+import { createPortal } from 'react-dom'
 import { formatHours } from '../../lib/calculations'
 
 export default function ShiftDetailModal({ shift, onClose }) {
   if (!shift) return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-fade-in"
       onClick={onClose}
@@ -95,7 +96,8 @@ export default function ShiftDetailModal({ shift, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

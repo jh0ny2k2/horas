@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useNavigate } from 'react-router-dom'
@@ -349,7 +350,7 @@ export default function Settings() {
         )}
       </div>
 
-      {showConfirmModal && (
+      {showConfirmModal && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-fade-in">
             <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
@@ -361,7 +362,7 @@ export default function Settings() {
               Cambiar rol
             </h3>
             <p className="text-slate-500 text-sm text-center mb-6">
-              Esta accion solo se podra realizar <span className="font-semibold">1 vez</span>. 
+              Esta accion solo se podra realizar <span className="font-semibold">1 vez</span>.
               Una vez cambiado, no podras volver a cambiar tu rol.
             </p>
             <div className="flex gap-3">
@@ -379,7 +380,8 @@ export default function Settings() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
