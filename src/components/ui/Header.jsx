@@ -85,7 +85,7 @@ export default function Header() {
           <div className="flex items-center gap-2">
             {profile?.role === 'company_owner' && (
               <button
-                onClick={() => navigate('/company')}
+                onClick={() => navigate('/')}
                 className="relative p-2 rounded-xl text-slate-400 hover:text-gold hover:bg-gold/10 transition-all"
                 title={pendingCount > 0 ? `${pendingCount} turno(s) pendiente(s)` : 'Sin notificaciones'}
               >
