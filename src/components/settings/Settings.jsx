@@ -14,7 +14,8 @@ export default function Settings() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [showRoleChange, setShowRoleChange] = useState(false)
-  const [newRole, setNewRole] = useState(null)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [pendingRole, setPendingRole] = useState(null)
   const [newCompanyName, setNewCompanyName] = useState('')
   const [newCompanyRate, setNewCompanyRate] = useState('')
   const [changingRole, setChangingRole] = useState(false)
@@ -58,12 +59,21 @@ export default function Settings() {
     }
   }
 
+  const handleConfirmRoleChange = () => {
+    setShowConfirmModal(true)
+  }
+
+  const handleAcceptRoleChange = () => {
+    setShowConfirmModal(false)
+    setShowRoleChange(true)
+  }
+
   const handleChangeRole = async () => {
     setError('')
     setChangingRole(true)
 
     try {
-      if (newRole === 'company_owner') {
+      if (pendingRole === 'company_owner') {
         if (!newCompanyName.trim()) {
           setError('Debes ingresar el nombre de la empresa')
           setChangingRole(false)
@@ -84,18 +94,20 @@ export default function Settings() {
         await updateProfile({
           role: 'company_owner',
           company_id: newCompany.id,
+          role_changed: true,
         })
       } else {
         await updateProfile({
           role: 'individual',
           company_id: null,
+          role_changed: true,
         })
       }
 
       await refreshProfile()
       setSuccess(true)
       setShowRoleChange(false)
-      setNewRole(null)
+      setPendingRole(null)
       setNewCompanyName('')
       setNewCompanyRate('')
       setTimeout(() => setSuccess(false), 2000)
@@ -219,9 +231,9 @@ export default function Settings() {
           </div>
         </div>
 
-        {profile?.role !== 'employee' && (
+        {profile?.role !== 'employee' && !profile?.role_changed && (
           <button
-            onClick={() => setShowRoleChange(!showRoleChange)}
+            onClick={handleConfirmRoleChange}
             className="btn-ghost text-sm text-gold mt-3"
           >
             Cambiar a {profile?.role === 'individual' ? 'Empresa' : 'Persona'}
@@ -230,11 +242,11 @@ export default function Settings() {
 
         {showRoleChange && (
           <div className="mt-4 pt-4 border-t border-slate-100">
-            {newRole === null ? (
+            {pendingRole === null ? (
               <div className="space-y-3">
                 <p className="text-sm text-slate-500">¿A qué rol quieres cambiar?</p>
                 <button
-                  onClick={() => setNewRole('individual')}
+                  onClick={() => setPendingRole('individual')}
                   className="card w-full text-left hover:border-gold/30 transition-all"
                 >
                   <div className="flex items-center gap-3">
@@ -250,7 +262,7 @@ export default function Settings() {
                   </div>
                 </button>
                 <button
-                  onClick={() => setNewRole('company_owner')}
+                  onClick={() => setPendingRole('company_owner')}
                   className="card w-full text-left hover:border-gold/30 transition-all"
                 >
                   <div className="flex items-center gap-3">
@@ -266,13 +278,13 @@ export default function Settings() {
                   </div>
                 </button>
                 <button
-                  onClick={() => { setShowRoleChange(false); setNewRole(null) }}
+                  onClick={() => { setShowRoleChange(false); setPendingRole(null) }}
                   className="w-full text-center text-sm text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   Cancelar
                 </button>
               </div>
-            ) : newRole === 'company_owner' && !company ? (
+            ) : pendingRole === 'company_owner' && !company ? (
               <div className="space-y-3">
                 <p className="text-sm text-slate-500">Crea tu empresa</p>
                 <div>
@@ -305,7 +317,7 @@ export default function Settings() {
                   {changingRole ? 'Cambiando...' : 'Crear empresa y cambiar rol'}
                 </button>
                 <button
-                  onClick={() => { setNewRole(null); setNewCompanyName(''); setNewCompanyRate('') }}
+                  onClick={() => { setPendingRole(null); setNewCompanyName(''); setNewCompanyRate('') }}
                   className="w-full text-center text-sm text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   Volver
@@ -314,7 +326,7 @@ export default function Settings() {
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-slate-500">
-                  {newRole === 'individual'
+                  {pendingRole === 'individual'
                     ? 'Cambiaste a persona. Tu empresa seguirá existiendo.'
                     : 'Ya tienes una empresa. Se vinculará a tu cuenta.'}
                 </p>
@@ -326,7 +338,7 @@ export default function Settings() {
                   {changingRole ? 'Cambiando...' : 'Confirmar cambio'}
                 </button>
                 <button
-                  onClick={() => setNewRole(null)}
+                  onClick={() => setPendingRole(null)}
                   className="w-full text-center text-sm text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   Volver
@@ -336,6 +348,39 @@ export default function Settings() {
           </div>
         )}
       </div>
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-fade-in">
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-800 text-center mb-2">
+              Cambiar rol
+            </h3>
+            <p className="text-slate-500 text-sm text-center mb-6">
+              Esta accion solo se podra realizar <span className="font-semibold">1 vez</span>. 
+              Una vez cambiado, no podras volver a cambiar tu rol.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 btn-ghost text-slate-600"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAcceptRoleChange}
+                className="flex-1 btn-primary"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
