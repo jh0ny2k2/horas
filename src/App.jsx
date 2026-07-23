@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { useEffect } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { registerForPushNotifications } from './lib/notifications'
 import Header from './components/ui/Header'
 import BottomNavBar from './components/ui/BottomNavBar'
 import LoginForm from './components/auth/LoginForm'
@@ -29,6 +31,12 @@ function AuthLayout() {
 
 function ProtectedLayout() {
   const { user, profile, loading } = useAuth()
+
+  useEffect(() => {
+    if (user) {
+      registerForPushNotifications(user.id)
+    }
+  }, [user])
 
   if (loading) {
     return (
