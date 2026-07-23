@@ -38,7 +38,7 @@ export default function LoginForm() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Horas de Trabajo</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Workora</h1>
           <p className="text-slate-400 text-sm mt-2">Inicia sesión para continuar</p>
         </div>
 

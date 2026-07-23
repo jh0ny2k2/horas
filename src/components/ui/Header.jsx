@@ -17,7 +17,7 @@ export default function Header() {
       <div className="px-5 pt-5 pb-3">
         <div className="flex items-center justify-between mb-1">
           <div>
-            <p className="text-xs text-gold font-semibold tracking-wide uppercase">Horas de Trabajo</p>
+            <p className="text-xs text-gold font-semibold tracking-wide uppercase">Workora</p>
             <h1 className="text-xl font-bold text-slate-800 mt-0.5">
               {greeting}, <span className="text-gold">{displayName}</span>
             </h1>
