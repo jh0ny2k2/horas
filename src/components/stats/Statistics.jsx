@@ -5,6 +5,7 @@ import { formatHours, startOfWeek } from '../../lib/calculations'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import EmptyState from '../ui/EmptyState'
+import SummaryCard from '../dashboard/SummaryCard'
 
 const VIEW_OPTIONS = [
   { key: 'daily', label: 'Diario' },
@@ -14,14 +15,16 @@ const VIEW_OPTIONS = [
 ]
 
 const QUICK_RANGES = [
-  { key: '7d', label: 'Últimos 7 días', days: 7 },
-  { key: '30d', label: 'Últimos 30 días', days: 30 },
-  { key: '90d', label: 'Últimos 90 días', days: 90 },
+  { key: '7d', label: '7 días', days: 7 },
+  { key: '30d', label: '30 días', days: 30 },
+  { key: '90d', label: '90 días', days: 90 },
   { key: 'year', label: 'Este año', days: 365 },
 ]
 
 export default function Statistics() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const hourlyRate = Number(profile?.hourly_rate || 0)
+  const isIndividual = profile?.role === 'individual'
   const [shifts, setShifts] = useState([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState('weekly')
@@ -70,8 +73,8 @@ export default function Statistics() {
     return shifts.filter(s => s.work_date >= cutoffStr)
   }, [shifts, view, quickRange, dateFrom, dateTo, showAll])
 
-  const { chartData, stats, chartLabel } = useMemo(() => {
-    if (filteredShifts.length === 0) return { chartData: [], stats: null, chartLabel: '' }
+  const { chartData, stats } = useMemo(() => {
+    if (filteredShifts.length === 0) return { chartData: [], stats: null }
 
     if (view === 'daily') return processDaily(filteredShifts)
     if (view === 'weekly') return processWeekly(filteredShifts)
@@ -90,16 +93,30 @@ export default function Statistics() {
     return processWeekly(filteredShifts)
   }, [filteredShifts, view, dateFrom, dateTo])
 
+  const periodLabel = view === 'daily' ? 'día' : view === 'weekly' ? 'semana' : view === 'monthly' ? 'mes' : 'período'
+  const totalCount = filteredShifts.length
+
+  const periodEarned = hourlyRate > 0 ? stats?.totalHours * hourlyRate : 0
+  const totalEarned = hourlyRate > 0 ? shifts.reduce((acc, s) => acc + Number(s.total_hours), 0) * hourlyRate : 0
+
+  const chartTitle = view === 'daily'
+    ? 'Horas por día'
+    : view === 'weekly'
+      ? 'Horas por semana'
+      : view === 'monthly'
+        ? 'Horas por mes'
+        : 'Horas en período'
+
   if (loading) return <LoadingSpinner text="Cargando estadísticas..." />
 
   if (shifts.length === 0) {
     return (
       <div className="animate-fade-in">
-        <h2 className="text-lg font-semibold text-slate-700 mb-1">Estadísticas</h2>
-        <p className="text-sm text-slate-400 mb-6">Visualiza tus horas trabajadas</p>
+        <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Estadísticas</h2>
+        <p className="text-sm text-slate-400 dark:text-slate-500 mb-6">Visualiza tus horas trabajadas</p>
         <EmptyState
           icon={
-            <svg className="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-7 h-7 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           }
@@ -112,22 +129,18 @@ export default function Statistics() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-700">Estadísticas</h2>
-        <p className="text-sm text-slate-400 mt-1">Visualiza tus horas trabajadas</p>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-bold text-slate-800 dark:text-white">Estadísticas</h2>
+        <p className="text-xs text-slate-400 dark:text-slate-500">Visualiza tus horas trabajadas</p>
       </div>
 
       {/* View selector */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
         {VIEW_OPTIONS.map((v) => (
           <button
             key={v.key}
             onClick={() => setView(v.key)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-200 ${
-              view === v.key
-                ? 'bg-gold text-white shadow-sm'
-                : 'bg-white text-slate-500 hover:bg-slate-50'
-            }`}
+            className={`chip ${view === v.key ? 'chip-active' : ''}`}
           >
             {v.label}
           </button>
@@ -159,141 +172,156 @@ export default function Statistics() {
           </div>
         </div>
       ) : (
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
           {QUICK_RANGES.map((r) => (
             <button
               key={r.key}
               onClick={() => { setQuickRange(r.key); setShowAll(false) }}
-              className={`px-3 py-1.5 rounded-xl text-[11px] font-medium whitespace-nowrap transition-all ${
-                !showAll && quickRange === r.key
-                  ? 'bg-slate-700 text-white'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-              }`}
+              className={`chip ${!showAll && quickRange === r.key ? 'chip-active' : ''}`}
             >
               {r.label}
             </button>
           ))}
           <button
             onClick={() => { setShowAll(true) }}
-            className={`px-3 py-1.5 rounded-xl text-[11px] font-medium whitespace-nowrap transition-all ${
-              showAll
-                ? 'bg-slate-700 text-white'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-            }`}
+            className={`chip ${showAll ? 'chip-active' : ''}`}
           >
             Todo
           </button>
         </div>
       )}
 
-      {/* Stats cards */}
-      {stats && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="card">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Promedio</p>
-            <p className="text-xl font-bold text-slate-800 mt-1 tabular-nums">{formatHours(stats.average)}</p>
-            <p className="text-xs text-slate-400 mt-0.5">por período</p>
-          </div>
-          <div className="card bg-gradient-to-br from-gold/5 to-brand-50 border-gold/20">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Mejor período</p>
-            <p className="text-xl font-bold text-gold mt-1 tabular-nums">{formatHours(stats.bestValue)}</p>
-            <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{stats.bestLabel}</p>
-          </div>
-          <div className="card">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total días</p>
-            <p className="text-xl font-bold text-slate-800 mt-1 tabular-nums">{stats.totalDays}</p>
-            <p className="text-xs text-slate-400 mt-0.5">con registros</p>
-          </div>
-          <div className="card">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total horas</p>
-            <p className="text-xl font-bold text-slate-800 mt-1 tabular-nums">{formatHours(stats.totalHours)}</p>
-            <p className="text-xs text-slate-400 mt-0.5">registradas</p>
-          </div>
-        </div>
-      )}
+      {stats ? (
+        <>
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-600 to-accent-600 p-6 shadow-xl shadow-brand-600/30 animate-fade-in">
+            <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-16 -left-8 w-40 h-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
 
-      {/* Chart */}
-      {chartData.length > 0 && (
-        <div className="card-premium">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-medium text-slate-500">
-              {view === 'daily' ? 'Horas por día' :
-               view === 'weekly' ? 'Horas por semana' :
-               view === 'monthly' ? 'Horas por mes' : 'Horas en período'}
-            </p>
-            {stats && (
-              <p className="text-xs text-gold font-semibold">
-                Media: {formatHours(stats.average)}/período
+            <div className="relative">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">Horas registradas</p>
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-white/15 text-white whitespace-nowrap">
+                  {stats.totalDays} {stats.totalDays === 1 ? 'día' : 'días'}
+                </span>
+              </div>
+              <p className="text-4xl font-extrabold text-white mt-2 tabular-nums">
+                {formatHours(stats.totalHours)}
+                <span className="text-lg font-bold text-white/60 ml-1">h</span>
               </p>
-            )}
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={chartData} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0ede8" />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 10, fill: '#94a3b8' }}
-                axisLine={{ stroke: '#f0ede8' }}
-                tickLine={false}
-                interval={Math.floor(chartData.length / 8)}
-              />
-              <YAxis
-                tick={{ fontSize: 10, fill: '#94a3b8' }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `${v}h`}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'rgba(255, 255, 255, 0.95)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                  padding: '8px 12px',
-                }}
-                formatter={(value) => [formatHours(value), 'Horas']}
-                labelStyle={{ color: '#475569', fontWeight: 600, fontSize: 12 }}
-              />
-              <Bar
-                dataKey="hours"
-                fill="#d4a843"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={30}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+              <p className="text-[11px] text-white/60 mt-1">
+                {totalCount} {totalCount === 1 ? 'turno' : 'turnos'} en el período
+              </p>
 
-      {/* Daily breakdown list */}
-      {view === 'daily' && filteredShifts.length > 0 && (
-        <div className="card">
-          <p className="text-xs font-medium text-slate-500 mb-3">Desglose por día</p>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {filteredShifts.slice().reverse().slice(0, 30).map((shift) => (
-              <div key={shift.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+              <div className="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-white/15">
                 <div>
-                  <p className="text-sm font-medium text-slate-700">
-                    {new Date(shift.work_date + 'T12:00:00').toLocaleDateString('es-ES', {
-                      weekday: 'short',
-                      day: 'numeric',
-                      month: 'short'
-                    })}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {shift.start_time?.slice(0, 5)} - {shift.end_time?.slice(0, 5)}
-                    {shift.break_minutes > 0 && ` · ${shift.break_minutes}min descanso`}
+                  <p className="text-[10px] text-white/60 uppercase tracking-wider">Promedio</p>
+                  <p className="text-white font-bold tabular-nums">
+                    {formatHours(stats.average)} <span className="text-xs text-white/60 font-medium">/ {periodLabel}</span>
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-700">{formatHours(shift.total_hours)}</p>
-                  <p className={`text-[10px] font-medium ${shift.approved ? 'text-green-500' : 'text-yellow-500'}`}>
-                    {shift.approved ? 'Aprobado' : 'Pendiente'}
+                <div className="min-w-0">
+                  <p className="text-[10px] text-white/60 uppercase tracking-wider">Mejor</p>
+                  <p className="text-white font-bold tabular-nums truncate">
+                    {formatHours(stats.bestValue)} <span className="text-xs text-white/60 font-medium">({stats.bestLabel})</span>
                   </p>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
+
+          {/* Chart */}
+          {chartData.length > 0 && (
+            <div className="card-premium">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{chartTitle}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Media {formatHours(stats.average)}/{periodLabel}</p>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={chartData} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 10, fill: 'var(--chart-tick)' }}
+                    axisLine={{ stroke: 'var(--chart-grid)' }}
+                    tickLine={false}
+                    interval={Math.floor(chartData.length / 8)}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: 'var(--chart-tick)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => `${v}h`}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
+                    contentStyle={{
+                      background: 'var(--chart-tooltip-bg)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                      padding: '8px 12px',
+                      color: 'inherit',
+                    }}
+                    formatter={(value) => [formatHours(value), 'Horas']}
+                    labelStyle={{ color: '#6366f1', fontWeight: 600, fontSize: 12 }}
+                  />
+                  <Bar
+                    dataKey="hours"
+                    fill="var(--chart-bar)"
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={30}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 gap-3 stagger">
+            <SummaryCard
+              label="Promedio"
+              value={formatHours(stats.average)}
+              subtitle={`por ${periodLabel}`}
+              icon="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              color="blue"
+            />
+            <SummaryCard
+              label="Mejor período"
+              value={formatHours(stats.bestValue)}
+              subtitle={stats.bestLabel}
+              icon="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+              color="brand"
+            />
+            {!isIndividual && (
+              <>
+                <SummaryCard
+                  label="Ganado en el período"
+                  value={`€${periodEarned.toFixed(2)}`}
+                  subtitle={hourlyRate > 0 ? `${formatHours(stats.totalHours)} a ${hourlyRate.toFixed(2)}€/h` : 'Configura tu tarifa en Ajustes'}
+                  icon="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+                  color="green"
+                />
+                <SummaryCard
+                  label="Total acumulado"
+                  value={`€${totalEarned.toFixed(2)}`}
+                  subtitle={`${formatHours(shifts.reduce((acc, s) => acc + Number(s.total_hours), 0))} en total`}
+                  icon="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  color="purple"
+                />
+              </>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="card flex flex-col items-center text-center py-8 animate-fade-in">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+            <svg className="w-6 h-6 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Sin datos en este período</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Ajusta el rango seleccionado</p>
         </div>
       )}
     </div>

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { calculateTotalHours } from '../../lib/calculations'
+import { calculateTotalHours, formatHours } from '../../lib/calculations'
 import ErrorMessage from '../ui/ErrorMessage'
 import { useNavigate } from 'react-router-dom'
+
+const BREAK_PRESETS = [0, 15, 30, 60]
 
 export default function WorkShiftForm({ editShift = null, onSaved }) {
   const { user, profile } = useAuth()
@@ -110,30 +112,78 @@ export default function WorkShiftForm({ editShift = null, onSaved }) {
     }
   }
 
+  const dateLabel = formData.work_date
+    ? formatDateLabel(formData.work_date)
+    : 'Elige una fecha'
+
+  const hasComplete = formData.start_time && formData.end_time
+
   return (
     <div className="animate-fade-in">
-      <div className="mb-6">
+      <div className="flex items-center gap-3 mb-5">
         <button
           onClick={() => navigate(-1)}
-          className="btn-ghost flex items-center gap-1 text-sm text-slate-400 mb-3"
+          className="btn-ghost flex items-center justify-center w-10 h-10 rounded-2xl shrink-0"
+          aria-label="Volver"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Volver
         </button>
-        <h2 className="text-lg font-semibold text-slate-700">
-          {isEditing ? 'Editar jornada' : 'Registrar jornada'}
-        </h2>
-        <p className="text-sm text-slate-400 mt-1">
-          {isEditing ? 'Actualiza los datos del turno' : 'Añade un turno de trabajo'}
-        </p>
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-slate-800 dark:text-white truncate">
+            {isEditing ? 'Editar jornada' : 'Registrar jornada'}
+          </h2>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            {isEditing ? 'Actualiza los datos del turno' : 'Añade un turno de trabajo'}
+          </p>
+        </div>
+      </div>
+
+      {/* Live preview */}
+      <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-600 to-accent-600 p-6 shadow-xl shadow-brand-600/30 mb-5 animate-fade-in">
+        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-8 w-40 h-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+
+        <div className="relative">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-[11px] font-semibold text-white/70 uppercase tracking-wider capitalize">
+              {dateLabel}
+            </p>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+              calculated > 0 ? 'bg-white/15 text-white' : 'bg-white/10 text-white/60'
+            }`}>
+              {calculated > 0 ? `${formData.break_minutes > 0 ? 'Con pausa' : 'Sin pausa'}` : 'Pendiente'}
+            </span>
+          </div>
+
+          <p className="text-4xl font-extrabold text-white mt-2 tabular-nums">
+            {calculated > 0 ? formatHours(calculated) : '--:--'}
+            <span className="text-lg font-bold text-white/60 ml-1">h</span>
+          </p>
+          <p className="text-[11px] text-white/60 mt-1">Horas netas de trabajo</p>
+
+          {hasComplete && (
+            <div className="mt-4 pt-4 border-t border-white/15 flex items-center gap-2">
+              <svg className="w-4 h-4 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm font-semibold text-white tabular-nums">
+                {formData.start_time} - {formData.end_time}
+                {Number(formData.break_minutes) > 0 && (
+                  <span className="text-white/70 font-medium"> · {formData.break_minutes} min</span>
+                )}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <ErrorMessage message={error} onDismiss={() => setError('')} />
 
-        <div>
+        {/* Fecha */}
+        <div className="card">
           <label className="label" htmlFor="work_date">Fecha</label>
           <input
             id="work_date"
@@ -145,46 +195,75 @@ export default function WorkShiftForm({ editShift = null, onSaved }) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label" htmlFor="start_time">Hora inicio</label>
-            <input
-              id="start_time"
-              type="time"
-              value={formData.start_time}
-              onChange={(e) => handleChange('start_time', e.target.value)}
-              className="input-field"
-              required
-            />
+        {/* Horario */}
+        <div className="card">
+          <span className="label">Horario</span>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block" htmlFor="start_time">Inicio</label>
+              <input
+                id="start_time"
+                type="time"
+                value={formData.start_time}
+                onChange={(e) => handleChange('start_time', e.target.value)}
+                className="input-field"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block" htmlFor="end_time">Fin</label>
+              <input
+                id="end_time"
+                type="time"
+                value={formData.end_time}
+                onChange={(e) => handleChange('end_time', e.target.value)}
+                className="input-field"
+                required
+              />
+            </div>
           </div>
-          <div>
-            <label className="label" htmlFor="end_time">Hora fin</label>
-            <input
-              id="end_time"
-              type="time"
-              value={formData.end_time}
-              onChange={(e) => handleChange('end_time', e.target.value)}
-              className="input-field"
-              required
-            />
+          <div className="mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-50/60 dark:bg-brand-500/5">
+            <svg className="w-4 h-4 text-brand-500 dark:text-brand-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <p className="text-xs font-medium text-brand-700 dark:text-brand-300">
+              {calculated > 0 ? `${formatHours(calculated)}h netas calculadas` : 'Completa inicio y fin para calcular'}
+            </p>
           </div>
         </div>
 
-        <div>
-          <label className="label" htmlFor="break_minutes">Descanso (minutos)</label>
-          <input
-            id="break_minutes"
-            type="number"
-            min="0"
-            max="480"
-            value={formData.break_minutes}
-            onChange={(e) => handleChange('break_minutes', e.target.value)}
-            className="input-field"
-            placeholder="0"
-          />
+        {/* Descanso */}
+        <div className="card">
+          <span className="label">Descanso</span>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {BREAK_PRESETS.map(min => (
+              <button
+                key={min}
+                type="button"
+                onClick={() => handleChange('break_minutes', min)}
+                className={`${Number(formData.break_minutes) === min ? 'chip chip-active' : 'chip'}`}
+              >
+                {min === 0 ? 'Sin pausa' : `${min} min`}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              id="break_minutes"
+              type="number"
+              min="0"
+              max="480"
+              value={formData.break_minutes}
+              onChange={(e) => handleChange('break_minutes', e.target.value)}
+              className="input-field"
+              placeholder="0"
+            />
+            <span className="text-sm text-slate-400 dark:text-slate-500 flex-shrink-0">minutos</span>
+          </div>
         </div>
 
-        <div>
+        {/* Notas */}
+        <div className="card">
           <label className="label" htmlFor="notes">Notas (opcional)</label>
           <textarea
             id="notes"
@@ -194,17 +273,6 @@ export default function WorkShiftForm({ editShift = null, onSaved }) {
             placeholder="Notas adicionales..."
           />
         </div>
-
-        {calculated !== null && calculated > 0 && (
-          <div className="card bg-gradient-to-r from-gold/5 to-brand-50 border-gold/20">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-600">Horas netas calculadas</span>
-              <span className="text-lg font-bold text-gold tabular-nums">
-                {calculated.toFixed(2)}h
-              </span>
-            </div>
-          </div>
-        )}
 
         <button type="submit" disabled={loading} className="btn-primary">
           {loading
@@ -217,4 +285,9 @@ export default function WorkShiftForm({ editShift = null, onSaved }) {
       </form>
     </div>
   )
+}
+
+function formatDateLabel(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00')
+  return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
 }

@@ -1,12 +1,28 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: light;
+  --chart-grid: #eef0f9;
+  --chart-tick: #94a3b8;
+  --chart-bar: #4f46e5;
+  --chart-tooltip-bg: rgba(255, 255, 255, 0.96);
+}
+
+html.dark {
+  color-scheme: dark;
+  --chart-grid: #1e293b;
+  --chart-tick: #94a3b8;
+  --chart-bar: #818cf8;
+  --chart-tooltip-bg: rgba(15, 23, 42, 0.96);
+}
+
 @layer base {
   body {
-    @apply bg-ivory text-slate-800 font-sans antialiased;
+    @apply bg-ivory dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -15,60 +31,105 @@
   }
 
   input:focus, select:focus, textarea:focus {
-    @apply ring-2 ring-gold/30 ring-offset-2 ring-offset-ivory;
+    @apply ring-2 ring-brand-500/30 ring-offset-2 ring-offset-ivory dark:ring-offset-slate-950;
   }
 }
 
 @layer components {
   .card {
-    @apply bg-white/90 backdrop-blur-sm rounded-3xl p-5 shadow-premium border border-white/60;
+    @apply bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-premium border border-slate-200/60 dark:border-slate-800 transition-colors duration-200;
   }
 
   .card-premium {
-    @apply bg-white/95 backdrop-blur-md rounded-3xl p-6 shadow-premium-lg border border-white/80;
+    @apply bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-premium-lg border border-slate-200/60 dark:border-slate-800 transition-colors duration-200;
   }
 
   .btn-primary {
-    @apply w-full bg-gradient-to-r from-gold to-gold-light text-white font-semibold py-3.5 px-6 rounded-2xl
-           shadow-lg shadow-gold/20 hover:shadow-xl hover:shadow-gold/30
+    @apply w-full bg-gradient-to-r from-brand-600 to-accent-600 text-white font-semibold py-3.5 px-6 rounded-2xl
+           shadow-lg shadow-brand-600/25 hover:shadow-xl hover:shadow-brand-600/30 hover:brightness-110
            active:scale-[0.98] transition-all duration-200
            disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
   }
 
   .btn-secondary {
-    @apply w-full bg-white/80 text-slate-700 font-medium py-3 px-5 rounded-2xl
-           border border-slate-200 shadow-sm
-           hover:bg-white hover:shadow-md
+    @apply w-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium py-3 px-5 rounded-2xl
+           border border-slate-200 dark:border-slate-700 shadow-sm
+           hover:bg-slate-50 dark:hover:bg-slate-700/60 hover:shadow-md
            active:scale-[0.98] transition-all duration-200;
   }
 
   .btn-ghost {
-    @apply text-slate-500 hover:text-slate-700 hover:bg-slate-100/50
+    @apply text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100/50 dark:hover:bg-slate-800/60
            rounded-xl px-3 py-2 transition-all duration-200;
   }
 
   .btn-google {
-    @apply w-full bg-white border border-slate-200 text-slate-700 font-medium py-3 px-5 rounded-2xl
-           shadow-sm hover:bg-slate-50 hover:shadow-md
+    @apply w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium py-3 px-5 rounded-2xl
+           shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700/60 hover:shadow-md
            active:scale-[0.98] transition-all duration-200
            disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
            flex items-center justify-center gap-3;
   }
 
   .input-field {
-    @apply w-full bg-white/80 border border-slate-200 rounded-2xl px-4 py-3.5
-           text-slate-800 placeholder:text-slate-400
-           focus:border-gold/50 transition-all duration-200;
+    @apply w-full bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3.5
+           text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500
+           focus:border-brand-500/50 transition-all duration-200;
   }
 
   .label {
-    @apply block text-sm font-medium text-slate-600 mb-1.5;
+    @apply block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5;
+  }
+
+  .chip {
+    @apply px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
+           bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400
+           border border-slate-200 dark:border-slate-700
+           hover:text-slate-700 dark:hover:text-slate-200 active:scale-[0.97];
+  }
+
+  .chip-active {
+    @apply bg-brand-600 dark:bg-brand-500 text-white border-transparent shadow-md shadow-brand-600/25;
+  }
+
+  .surface-muted {
+    @apply bg-slate-50 dark:bg-slate-800/50;
+  }
+
+  .text-strong {
+    @apply text-slate-800 dark:text-slate-100;
+  }
+
+  .text-muted {
+    @apply text-slate-500 dark:text-slate-400;
+  }
+
+  .text-faint {
+    @apply text-slate-400 dark:text-slate-500;
+  }
+
+  .divider {
+    @apply border-slate-100 dark:border-slate-800;
   }
 }
 
-/* Safe area for iPhone notch */
+/* Safe area for device notches / gesture bars */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Hide scrollbar for horizontal chip rows */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 /* Smooth scrollbar */
@@ -81,7 +142,7 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 rounded-full;
+  @apply bg-slate-300 dark:bg-slate-700 rounded-full;
 }
 
 /* Animations */
@@ -100,6 +161,11 @@
   50% { opacity: 0.6; }
 }
 
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
 }
@@ -110,6 +176,10 @@
 
 .animate-pulse-soft {
   animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out forwards;
 }
 
 /* Stagger children animations */

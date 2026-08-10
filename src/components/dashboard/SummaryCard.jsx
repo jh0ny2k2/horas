@@ -1,30 +1,32 @@
-export default function SummaryCard({ label, value, subtitle, icon, color = 'gold' }) {
+export default function SummaryCard({ label, value, subtitle, icon, color = 'brand' }) {
   const colorClasses = {
-    gold: 'from-gold/10 to-brand-50 border-gold/20',
-    blue: 'from-blue-50 to-sky-50 border-blue-200/30',
-    green: 'from-emerald-50 to-teal-50 border-emerald-200/30',
-    purple: 'from-purple-50 to-violet-50 border-purple-200/30',
+    brand: 'from-brand-500 to-accent-500',
+    blue: 'from-sky-500 to-blue-600',
+    green: 'from-emerald-500 to-teal-600',
+    purple: 'from-violet-500 to-purple-600',
+    amber: 'from-amber-500 to-orange-500',
   }
 
-  const iconColorClasses = {
-    gold: 'text-gold bg-gold/10',
-    blue: 'text-blue-500 bg-blue-50',
-    green: 'text-emerald-500 bg-emerald-50',
-    purple: 'text-purple-500 bg-purple-50',
+  const glowClasses = {
+    brand: 'shadow-brand-600/25',
+    blue: 'shadow-blue-600/25',
+    green: 'shadow-emerald-600/25',
+    purple: 'shadow-purple-600/25',
+    amber: 'shadow-amber-600/25',
   }
 
   return (
-    <div className={`card bg-gradient-to-br ${colorClasses[color]} animate-fade-in`}>
-      <div className="flex items-start justify-between">
+    <div className="card animate-fade-in hover:shadow-premium-lg hover:-translate-y-0.5 transition-all duration-300 group">
+      <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">{label}</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1.5 tabular-nums">{value}</p>
+          <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{label}</p>
+          <p className="text-2xl font-extrabold text-slate-800 dark:text-white mt-1.5 tabular-nums truncate">{value}</p>
           {subtitle && (
-            <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{subtitle}</p>
           )}
         </div>
         {icon && (
-          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${iconColorClasses[color]}`}>
+          <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center flex-shrink-0 text-white shadow-lg ${glowClasses[color]} group-hover:scale-105 transition-transform duration-300`}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
             </svg>

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { registerForPushNotifications } from './lib/notifications'
 import Header from './components/ui/Header'
 import BottomNavBar from './components/ui/BottomNavBar'
+import NavRail from './components/ui/NavRail'
 import LoginForm from './components/auth/LoginForm'
 import RegisterForm from './components/auth/RegisterForm'
 import RoleSelection from './components/onboarding/RoleSelection'
@@ -55,11 +56,16 @@ function ProtectedLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-ivory">
+    <div className="min-h-screen bg-ivory dark:bg-slate-950">
       <Header />
-      <main className="max-w-lg mx-auto px-4 py-5 pb-28">
-        <Outlet />
-      </main>
+      <div className="mx-auto w-full max-w-6xl md:flex md:gap-6 md:px-6 lg:px-10">
+        <aside className="hidden md:block md:w-[88px] lg:w-[104px] flex-shrink-0 self-start sticky top-24">
+          <NavRail />
+        </aside>
+        <main className="w-full min-w-0 max-w-lg md:max-w-none mx-auto md:mx-0 px-4 md:px-0 py-5 pb-32 md:pb-12">
+          <Outlet />
+        </main>
+      </div>
       <BottomNavBar />
     </div>
   )

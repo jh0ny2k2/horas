@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { getWeekRange, getMonthRange } from '../../lib/calculations'
-import ShiftCard from '../shifts/ShiftCard'
+import { getWeekRange, getMonthRange, formatHours } from '../../lib/calculations'
 import ShiftDetailModal from '../shifts/ShiftDetailModal'
 import WorkShiftForm from '../shifts/WorkShiftForm'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -73,6 +72,29 @@ export default function History() {
     return result
   }, [shifts, filter, dateRange])
 
+  const groupedShifts = useMemo(() => {
+    const groups = {}
+    filteredShifts.forEach(s => {
+      if (!groups[s.work_date]) groups[s.work_date] = []
+      groups[s.work_date].push(s)
+    })
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))
+  }, [filteredShifts])
+
+  const totalHours = filteredShifts.reduce((a, s) => a + Number(s.total_hours), 0)
+  const totalDays = groupedShifts.length
+  const avgPerDay = totalDays > 0 ? totalHours / totalDays : 0
+  const approvedCount = filteredShifts.filter(s => s.approved).length
+  const pendingCount = filteredShifts.length - approvedCount
+
+  const periodLabel = filter === FILTERS.WEEK
+    ? 'Esta semana'
+    : filter === FILTERS.MONTH
+      ? 'Este mes'
+      : dateRange.from
+        ? 'Período seleccionado'
+        : 'Todos los registros'
+
   const handleDelete = async () => {
     if (!deleteConfirm) return
     try {
@@ -92,6 +114,7 @@ export default function History() {
   }
 
   const handleEdit = (shift) => {
+    setViewingShift(null)
     setEditingShift(shift)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -112,13 +135,11 @@ export default function History() {
 
   if (loading) return <LoadingSpinner text="Cargando historial..." />
 
-  const totalDisplay = filteredShifts.reduce((acc, s) => acc + Number(s.total_hours), 0)
-
   return (
     <div className="space-y-4 animate-fade-in">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-700">Historial</h2>
-        <p className="text-sm text-slate-400 mt-1">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-bold text-slate-800 dark:text-white">Historial</h2>
+        <p className="text-xs text-slate-400 dark:text-slate-500">
           {shifts.length} registro{shifts.length !== 1 ? 's' : ''} en total
         </p>
       </div>
@@ -126,31 +147,23 @@ export default function History() {
       <ErrorMessage message={error} onDismiss={() => setError('')} />
 
       {/* Filters */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
+      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1">
         {[
           { key: FILTERS.ALL, label: 'Todo' },
-          { key: FILTERS.WEEK, label: 'Esta semana' },
-          { key: FILTERS.MONTH, label: 'Este mes' },
+          { key: FILTERS.WEEK, label: 'Semana' },
+          { key: FILTERS.MONTH, label: 'Mes' },
         ].map((f) => (
           <button
             key={f.key}
             onClick={() => { setFilter(f.key); setDateRange({ from: '', to: '' }) }}
-            className={`px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all duration-200 ${
-              filter === f.key
-                ? 'bg-gold/10 text-gold shadow-inner-glow'
-                : 'bg-white/60 text-slate-500 hover:bg-white/80'
-            }`}
+            className={`chip ${filter === f.key ? 'chip-active' : ''}`}
           >
             {f.label}
           </button>
         ))}
         <button
           onClick={() => setFilter(dateRange.from ? FILTERS.ALL : 'range')}
-          className={`px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all duration-200 ${
-            dateRange.from
-              ? 'bg-gold/10 text-gold shadow-inner-glow'
-              : 'bg-white/60 text-slate-500 hover:bg-white/80'
-          }`}
+          className={`chip ${dateRange.from ? 'chip-active' : ''}`}
         >
           Rango
         </button>
@@ -165,7 +178,7 @@ export default function History() {
             onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
             className="input-field text-sm flex-1"
           />
-          <span className="text-slate-300">-</span>
+          <span className="text-slate-300 dark:text-slate-600">-</span>
           <input
             type="date"
             value={dateRange.to}
@@ -175,37 +188,122 @@ export default function History() {
         </div>
       )}
 
-      {/* Summary */}
+      {/* Hero summary */}
       {filteredShifts.length > 0 && (
-        <div className="card bg-gradient-to-r from-gold/5 to-brand-50 border-gold/20">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-600">
-              {filteredShifts.length} registro{filteredShifts.length !== 1 ? 's' : ''}
-            </span>
-            <span className="text-lg font-bold text-gold tabular-nums">
-              {totalDisplay.toFixed(2)}h totales
-            </span>
+        <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-600 to-accent-600 p-6 shadow-xl shadow-brand-600/30">
+          <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-16 -left-8 w-40 h-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+
+          <div className="relative">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">{periodLabel}</p>
+                <p className="text-4xl font-extrabold text-white mt-1 tabular-nums">
+                  {formatHours(totalHours)}
+                  <span className="text-lg font-bold text-white/60 ml-1">h</span>
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-white/15 text-white text-xs font-semibold whitespace-nowrap">
+                {totalDays} día{totalDays !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              <div>
+                <p className="text-[10px] text-white/60 uppercase tracking-wider">Promedio/día</p>
+                <p className="text-white font-bold tabular-nums">{formatHours(avgPerDay)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-white/60 uppercase tracking-wider">Aprobadas</p>
+                <p className="text-emerald-200 font-bold tabular-nums">{approvedCount}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-white/60 uppercase tracking-wider">Pendientes</p>
+                <p className="text-amber-200 font-bold tabular-nums">{pendingCount}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Shift list */}
+      {/* Grouped list by day */}
       {filteredShifts.length > 0 ? (
-        <div className="space-y-2.5">
-          {filteredShifts.map((shift) => (
-            <ShiftCard
-              key={shift.id}
-              shift={shift}
-              onView={setViewingShift}
-              onEdit={handleEdit}
-              onDelete={setDeleteConfirm}
-            />
-          ))}
+        <div>
+          {groupedShifts.map(([date, dayShifts]) => {
+            const dayTotal = dayShifts.reduce((a, s) => a + Number(s.total_hours), 0)
+            const dayPending = dayShifts.filter(s => !s.approved).length
+            return (
+              <div key={date}>
+                <div className="flex items-center justify-between px-1 pt-4 pb-1.5">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-bold text-slate-800 dark:text-white">{dayHeader(date)}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{dateSubtitle(date)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {dayPending > 0 && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" title={`${dayPending} pendiente(s)`} />
+                    )}
+                    <span className="text-sm font-bold text-brand-600 dark:text-brand-400 tabular-nums">
+                      {formatHours(dayTotal)}
+                      <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 ml-0.5">h</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="card px-4 py-1 divide-y divide-slate-100 dark:divide-slate-800">
+                  {dayShifts.map((shift) => (
+                    <button
+                      key={shift.id}
+                      onClick={() => setViewingShift(shift)}
+                      className="w-full flex items-center gap-3 py-3 text-left group"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                          {shift.start_time.slice(0, 5)}
+                        </span>
+                        <svg className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+                        <span className="font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                          {shift.end_time.slice(0, 5)}
+                        </span>
+                        {shift.break_minutes > 0 && (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1 whitespace-nowrap">
+                            {shift.break_minutes}min
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex-1" />
+
+                      <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                        shift.approved
+                          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'
+                          : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                      }`}>
+                        <span className={`w-1 h-1 rounded-full ${shift.approved ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                        {shift.approved ? 'Aprobado' : 'Pendiente'}
+                      </span>
+
+                      <span className="font-bold text-slate-700 dark:text-slate-200 tabular-nums">
+                        {formatHours(shift.total_hours)}
+                        <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 ml-0.5">h</span>
+                      </span>
+
+                      <svg className="w-4 h-4 text-slate-300 dark:text-slate-600 transition-transform group-active:translate-x-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
       ) : (
         <EmptyState
           icon={
-            <svg className="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-7 h-7 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
           }
@@ -215,18 +313,23 @@ export default function History() {
       )}
 
       {/* Detail modal */}
-      <ShiftDetailModal shift={viewingShift} onClose={() => setViewingShift(null)} />
+      <ShiftDetailModal
+        shift={viewingShift}
+        onClose={() => setViewingShift(null)}
+        onEdit={handleEdit}
+        onDelete={(s) => { setViewingShift(null); setDeleteConfirm(s) }}
+      />
 
       {/* Delete confirmation modal */}
       {deleteConfirm && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-premium-lg animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm shadow-premium-lg animate-scale-in border border-slate-200/60 dark:border-slate-800">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-slate-800">Eliminar registro</h3>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Eliminar registro</h3>
                 <button
                   onClick={() => setDeleteConfirm(null)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+                  className="p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -234,15 +337,15 @@ export default function History() {
                 </button>
               </div>
               <div className="flex flex-col items-center text-center py-4">
-                <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
-                  <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center mb-4">
+                  <svg className="w-7 h-7 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                 </div>
-                <p className="text-sm text-slate-500 mb-1">
-                  ¿Eliminar registro del <strong className="text-slate-700">{deleteConfirm.work_date}</strong>?
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">
+                  ¿Eliminar registro del <strong className="text-slate-700 dark:text-slate-200">{deleteConfirm.work_date}</strong>?
                 </p>
-                <p className="text-xs text-slate-400">Esta acción no se puede deshacer.</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Esta acción no se puede deshacer.</p>
               </div>
             </div>
             <div className="px-6 pb-6 flex gap-2">
@@ -254,7 +357,7 @@ export default function History() {
               </button>
               <button
                 onClick={handleDelete}
-                className="btn-primary flex-1 !bg-gradient-to-r !from-red-400 !to-red-500 !shadow-red-200/30"
+                className="btn-primary flex-1 !bg-gradient-to-r !from-rose-500 !to-red-500 !shadow-rose-500/25"
               >
                 Eliminar
               </button>
@@ -265,4 +368,24 @@ export default function History() {
       )}
     </div>
   )
+}
+
+function dayHeader(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00')
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  if (d.toDateString() === today.toDateString()) return 'Hoy'
+  if (d.toDateString() === yesterday.toDateString()) return 'Ayer'
+  return capitalize(d.toLocaleDateString('es-ES', { weekday: 'long' }))
+}
+
+function dateSubtitle(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00')
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+}
+
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1)
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import LoadingSpinner from '../ui/LoadingSpinner'
+import EmptyState from '../ui/EmptyState'
 import { useNavigate } from 'react-router-dom'
 
 export default function JoinCompany() {
@@ -10,6 +11,7 @@ export default function JoinCompany() {
   const [invitations, setInvitations] = useState([])
   const [loading, setLoading] = useState(true)
   const [accepting, setAccepting] = useState(null)
+  const [companyNames, setCompanyNames] = useState({})
 
   useEffect(() => {
     loadInvitations()
@@ -28,6 +30,14 @@ export default function JoinCompany() {
 
       if (error) throw error
       setInvitations(data || [])
+
+      const names = {}
+      for (const inv of data || []) {
+        const { data: companyData } = await supabase
+          .from('companies').select('name').eq('id', inv.company_id).single()
+        names[inv.company_id] = companyData?.name || 'una empresa'
+      }
+      setCompanyNames(names)
     } catch (err) {
       console.error('Error loading invitations:', err)
     } finally {
@@ -61,109 +71,102 @@ export default function JoinCompany() {
       navigate('/')
     } catch (err) {
       console.error('Error accepting invitation:', err)
-    } finally {
       setAccepting(null)
     }
   }
 
   const handleReject = async (invitationId) => {
     try {
+      setAccepting(invitationId)
       const { error } = await supabase
         .from('company_members')
-        .update({ status: 'rejected' })
+        .update({ status: 'rejected', user_id: null })
         .eq('id', invitationId)
 
       if (error) throw error
-
-      setInvitations(prev => prev.filter(i => i.id !== invitationId))
+      setInvitations(prev => prev.filter(inv => inv.id !== invitationId))
     } catch (err) {
       console.error('Error rejecting invitation:', err)
+    } finally {
+      setAccepting(null)
     }
   }
 
-  if (loading) return <LoadingSpinner text="Cargando invitaciones..." />
+  if (loading) {
+    return <LoadingSpinner text="Buscando invitaciones..." />
+  }
 
-  if (invitations.length === 0) {
-    return (
-      <div className="space-y-5 animate-fade-in">
-        <button
-          onClick={() => navigate('/')}
-          className="btn-ghost flex items-center gap-1 text-sm text-slate-400"
-        >
+  return (
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <button onClick={() => navigate('/')} className="btn-ghost flex items-center gap-1 text-sm">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Volver
         </button>
+      </div>
 
-        <div className="text-center py-12">
-          <svg className="w-16 h-16 text-slate-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          <p className="text-slate-400 mb-2">No tienes invitaciones pendientes</p>
-          <p className="text-sm text-slate-400">
-            Cuando una empresa te invite, aparecerá aquí
-          </p>
+      <div>
+        <h2 className="text-lg font-bold text-slate-800 dark:text-white">Invitaciones</h2>
+        <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Únete a la empresa de tu empleador</p>
+      </div>
+
+      {invitations.length === 0 ? (
+        <EmptyState
+          icon={
+            <svg className="w-7 h-7 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          }
+          title="Sin invitaciones"
+          description="Cuando una empresa te invite, aparecerá aquí."
+        />
+      ) : (
+        <div className="space-y-3">
+          {invitations.map((invitation) => (
+            <div key={invitation.id} className="card hover:shadow-premium-lg transition-shadow">
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-brand-500/25">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 capitalize">
+                    {companyNames[invitation.company_id] || 'una empresa'}
+                  </p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    Te han invitado a trabajar
+                  </p>
+                  <div className="mt-2 inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-full px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">
+                    €{Number(invitation.hourly_rate || 0).toFixed(2)}/hora
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => handleAccept(invitation)}
+                  disabled={accepting === invitation.id}
+                  className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:brightness-110 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {accepting === invitation.id ? 'Aceptando...' : 'Aceptar'}
+                </button>
+                <button
+                  onClick={() => handleReject(invitation.id)}
+                  disabled={accepting === invitation.id}
+                  className="flex-1 btn-secondary"
+                >
+                  Rechazar
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-5 animate-fade-in">
-      <button
-        onClick={() => navigate('/')}
-        className="btn-ghost flex items-center gap-1 text-sm text-slate-400"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Volver
-      </button>
-
-      <h2 className="text-lg font-semibold text-slate-700">Invitaciones pendientes</h2>
-
-      <div className="space-y-3">
-        {invitations.map((invitation) => (
-          <div key={invitation.id} className="card">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-gold/10 flex items-center justify-center">
-                <svg className="w-6 h-6 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-700">Invitación de empresa</h3>
-                <p className="text-sm text-slate-400">
-                  Te han invitado a trabajar
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 rounded-xl p-3 mb-4">
-              <p className="text-sm text-slate-600">
-                <span className="font-medium">Tarifa:</span> €{Number(invitation.hourly_rate || 0).toFixed(2)}/hora
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleAccept(invitation)}
-                disabled={accepting === invitation.id}
-                className="flex-1 btn-primary"
-              >
-                {accepting === invitation.id ? 'Aceptando...' : 'Aceptar'}
-              </button>
-              <button
-                onClick={() => handleReject(invitation.id)}
-                className="flex-1 btn-secondary"
-              >
-                Rechazar
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      )}
     </div>
   )
 }

@@ -2,45 +2,45 @@ import { formatHours } from '../../lib/calculations'
 
 export default function ShiftCard({ shift, onView, onEdit, onDelete, compact = false }) {
   return (
-    <div className="card animate-fade-in active:scale-[0.99] transition-transform">
+    <div className="card animate-fade-in active:scale-[0.99] transition-transform hover:shadow-premium-lg group">
       <div className="flex items-start justify-between gap-2">
         <button
           onClick={() => onView(shift)}
           className="flex-1 min-w-0 text-left"
         >
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-semibold text-slate-700">
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
               {formatDate(shift.work_date)}
             </span>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-slate-400 dark:text-slate-500">
               {getDayName(shift.work_date)}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
             <span>{shift.start_time.slice(0, 5)}</span>
-            <span className="text-slate-300">→</span>
+            <span className="text-slate-300 dark:text-slate-600">→</span>
             <span>{shift.end_time.slice(0, 5)}</span>
             {shift.break_minutes > 0 && (
               <>
-                <span className="text-slate-300">·</span>
+                <span className="text-slate-300 dark:text-slate-600">·</span>
                 <span className="text-xs">{shift.break_minutes}min</span>
               </>
             )}
           </div>
           {shift.notes && !compact && (
-            <p className="text-xs text-slate-400 mt-1.5 line-clamp-1">{shift.notes}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 line-clamp-1">{shift.notes}</p>
           )}
         </button>
 
         <div className="flex items-center gap-4 shrink-0">
-          <span className="text-lg font-bold text-gold tabular-nums">
+          <span className="text-lg font-extrabold text-brand-600 dark:text-brand-400 tabular-nums">
             {formatHours(shift.total_hours)}
-            <span className="text-xs font-normal text-slate-400 ml-0.5">h</span>
+            <span className="text-xs font-normal text-slate-400 dark:text-slate-500 ml-0.5">h</span>
           </span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => onView(shift)}
-              className="p-3 rounded-2xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-all"
+              className="p-3 rounded-2xl text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10 active:bg-brand-100 transition-all"
               aria-label="Ver detalle"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -50,7 +50,7 @@ export default function ShiftCard({ shift, onView, onEdit, onDelete, compact = f
             </button>
             <button
               onClick={() => onEdit(shift)}
-              className="p-3 rounded-2xl text-slate-400 hover:text-gold hover:bg-gold/5 active:bg-gold/10 transition-all"
+              className="p-3 rounded-2xl text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10 active:bg-brand-100 transition-all"
               aria-label="Editar"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -59,7 +59,7 @@ export default function ShiftCard({ shift, onView, onEdit, onDelete, compact = f
             </button>
             <button
               onClick={() => onDelete(shift)}
-              className="p-3 rounded-2xl text-slate-400 hover:text-red-500 hover:bg-red-50 active:bg-red-100 transition-all"
+              className="p-3 rounded-2xl text-slate-400 dark:text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 active:bg-rose-100 transition-all"
               aria-label="Eliminar"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
