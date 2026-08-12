@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import EmptyState from '../ui/EmptyState'
+import PaymentDetailModal from './PaymentDetailModal'
 
 export default function Payments() {
   const { user, profile, company } = useAuth()
   const isOwner = profile?.role === 'company_owner'
+  const isEmployee = profile?.role === 'employee'
+  const canManage = !isEmployee
   const [payments, setPayments] = useState([])
   const [workers, setWorkers] = useState([])
   const [selectedWorker, setSelectedWorker] = useState('')
@@ -18,6 +22,9 @@ export default function Payments() {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState('all')
+  const [viewingPayment, setViewingPayment] = useState(null)
+  const [editingPayment, setEditingPayment] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   useEffect(() => {
     if (!user) return
@@ -89,27 +96,76 @@ export default function Payments() {
 
     try {
       setSaving(true)
-      const { error } = await supabase
-        .from('payments')
-        .insert({
-          user_id: isOwner ? selectedWorker : user.id,
-          company_id: profile?.company_id || null,
-          amount: Number(amount),
-          description: description || null,
-          payment_date: paymentDate,
-        })
 
-      if (error) throw error
+      const payload = {
+        user_id: isOwner ? selectedWorker : user.id,
+        company_id: profile?.company_id || null,
+        amount: Number(amount),
+        description: description || null,
+        payment_date: paymentDate,
+      }
+
+      if (editingPayment) {
+        const { error } = await supabase
+          .from('payments')
+          .update(payload)
+          .eq('id', editingPayment.id)
+
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('payments')
+          .insert(payload)
+
+        if (error) throw error
+      }
 
       setAmount('')
       setDescription('')
       setPaymentDate(new Date().toISOString().split('T')[0])
       setShowForm(false)
+      setEditingPayment(null)
       await loadPayments()
     } catch (err) {
       console.error('Error:', err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleEdit = (payment) => {
+    setViewingPayment(null)
+    setEditingPayment(payment)
+    setAmount(String(payment.amount))
+    setDescription(payment.description || '')
+    setPaymentDate(payment.payment_date)
+    if (isOwner) setSelectedWorker(payment.user_id)
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCancelForm = () => {
+    setShowForm(false)
+    setEditingPayment(null)
+    setAmount('')
+    setDescription('')
+    setPaymentDate(new Date().toISOString().split('T')[0])
+  }
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return
+    try {
+      const { error } = await supabase
+        .from('payments')
+        .delete()
+        .eq('id', deleteConfirm.id)
+
+      if (error) throw error
+      setDeleteConfirm(null)
+      await loadPayments()
+    } catch (err) {
+      console.error('Error:', err)
+      setDeleteConfirm(null)
     }
   }
 
@@ -154,7 +210,7 @@ export default function Payments() {
           </p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => showForm ? handleCancelForm() : setShowForm(true)}
           className={`flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-xl transition-colors ${
             showForm
               ? 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -345,7 +401,7 @@ export default function Payments() {
               />
             </div>
             <button type="submit" disabled={saving || !amount || (isOwner && !selectedWorker)} className="btn-primary w-full">
-              {saving ? 'Guardando...' : (isOwner ? 'Registrar pago' : 'Registrar cobro')}
+              {saving ? 'Guardando...' : editingPayment ? 'Guardar cambios' : (isOwner ? 'Registrar pago' : 'Registrar cobro')}
             </button>
           </form>
         </div>
@@ -368,7 +424,11 @@ export default function Payments() {
         <div className="card p-0 overflow-hidden">
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {filteredPayments.map((payment) => (
-              <div key={payment.id} className="flex items-center gap-3 px-5 py-3.5">
+              <div
+                key={payment.id}
+                onClick={() => setViewingPayment(payment)}
+                className="flex items-center gap-3 px-5 py-3.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+              >
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/20">
                   <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -388,10 +448,70 @@ export default function Payments() {
                 <p className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums flex-shrink-0">
                   +€{Number(payment.amount).toFixed(2)}
                 </p>
+                <svg className="w-4 h-4 text-slate-300 dark:text-slate-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </div>
             ))}
           </div>
         </div>
+      )}
+
+      {/* Detail modal */}
+      <PaymentDetailModal
+        payment={viewingPayment}
+        workerName={workerNames[viewingPayment?.user_id]}
+        isOwner={isOwner}
+        onClose={() => setViewingPayment(null)}
+        onEdit={canManage ? handleEdit : null}
+        onDelete={canManage ? (p) => { setViewingPayment(null); setDeleteConfirm(p) } : null}
+      />
+
+      {/* Delete confirmation modal */}
+      {deleteConfirm && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm shadow-premium-lg animate-scale-in border border-slate-200/60 dark:border-slate-800">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Eliminar {isOwner ? 'pago' : 'cobro'}</h3>
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex flex-col items-center text-center py-4">
+                <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center mb-4">
+                  <svg className="w-7 h-7 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">
+                  ¿Eliminar {isOwner ? 'el pago' : 'el cobro'} del <strong className="text-slate-700 dark:text-slate-200">{deleteConfirm.payment_date}</strong>?
+                </p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Esta acción no se puede deshacer.</p>
+              </div>
+            </div>
+            <div className="px-6 pb-6 flex gap-2">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="btn-secondary flex-1"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                className="btn-primary flex-1 !bg-gradient-to-r !from-rose-500 !to-red-500 !shadow-rose-500/25"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   )
