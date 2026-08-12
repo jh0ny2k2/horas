@@ -82,8 +82,12 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [loadProfile])
 
-  const signUp = async (email, password) => {
-    const { error } = await supabase.auth.signUp({ email, password })
+  const signUp = async (email, password, redirectTo = undefined) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
+    })
     if (error) throw error
   }
 

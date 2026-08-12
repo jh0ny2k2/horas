@@ -35,7 +35,11 @@ export default function RegisterForm() {
 
     setLoading(true)
     try {
-      await signUp(email, password)
+      await signUp(
+        email,
+        password,
+        joinToken ? `${window.location.origin}/join/${joinToken}` : undefined
+      )
       setSuccess(true)
     } catch (err) {
       setError(err.message === 'User already registered'
