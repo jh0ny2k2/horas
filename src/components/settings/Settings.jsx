@@ -8,6 +8,7 @@ import ErrorMessage from '../ui/ErrorMessage'
 export default function Settings() {
   const { user, profile, company, updateProfile, refreshProfile } = useAuth()
   const navigate = useNavigate()
+  const [fullName, setFullName] = useState(profile?.full_name || '')
   const [hourlyRate, setHourlyRate] = useState(profile?.hourly_rate || 0)
   const [companyName, setCompanyName] = useState(company?.name || '')
   const [defaultRate, setDefaultRate] = useState(company?.default_rate || 0)
@@ -20,6 +21,26 @@ export default function Settings() {
   const [newCompanyName, setNewCompanyName] = useState('')
   const [newCompanyRate, setNewCompanyRate] = useState('')
   const [changingRole, setChangingRole] = useState(false)
+
+  const handleSaveName = async () => {
+    setError('')
+    setLoading(true)
+
+    try {
+      if (!fullName.trim()) {
+        setError('El nombre no puede estar vacío')
+        setLoading(false)
+        return
+      }
+      await updateProfile({ full_name: fullName.trim() })
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 2000)
+    } catch (err) {
+      setError(err.message || 'Error al guardar')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSaveProfile = async () => {
     setError('')
@@ -147,6 +168,34 @@ export default function Settings() {
           Guardado correctamente
         </div>
       )}
+
+      {/* Nombre de usuario */}
+      <section>
+        <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2 px-1">
+          Perfil
+        </h3>
+        <div className="card">
+          <label className="label" htmlFor="full_name">Nombre</label>
+          <input
+            id="full_name"
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="input-field"
+            placeholder="Tu nombre"
+          />
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+            Es el nombre que verán los demás usuarios
+          </p>
+          <button
+            onClick={handleSaveName}
+            disabled={loading}
+            className="btn-primary mt-4"
+          >
+            {loading ? 'Guardando...' : 'Guardar nombre'}
+          </button>
+        </div>
+      </section>
 
       {/* Tarifa horaria */}
       <section>
