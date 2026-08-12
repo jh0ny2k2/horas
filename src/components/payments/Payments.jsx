@@ -10,6 +10,7 @@ export default function Payments() {
   const [payments, setPayments] = useState([])
   const [workers, setWorkers] = useState([])
   const [selectedWorker, setSelectedWorker] = useState('')
+  const [showWorkerSelect, setShowWorkerSelect] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [amount, setAmount] = useState('')
@@ -139,6 +140,7 @@ export default function Payments() {
     .reduce((sum, p) => sum + Number(p.amount), 0)
 
   const workerNames = Object.fromEntries(workers.map(w => [w.id, w.full_name]))
+  const selectedWorkerInfo = workers.find(w => w.id === selectedWorker) || null
 
   if (loading) return <LoadingSpinner text={isOwner ? 'Cargando pagos...' : 'Cargando cobros...'} />
 
@@ -224,17 +226,73 @@ export default function Payments() {
             {isOwner && (
               <div>
                 <label className="label">Trabajador</label>
-                <select
-                  value={selectedWorker}
-                  onChange={(e) => setSelectedWorker(e.target.value)}
-                  className="input-field"
-                  required
-                >
-                  <option value="" disabled>Selecciona un trabajador</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>{w.full_name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowWorkerSelect(!showWorkerSelect)}
+                    disabled={workers.length === 0}
+                    className="input-field flex items-center justify-between gap-2 text-left disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      {selectedWorkerInfo ? (
+                        <>
+                          <span className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-500 to-accent-600 flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-white">{selectedWorkerInfo.full_name[0].toUpperCase()}</span>
+                          </span>
+                          <span className="truncate text-slate-800 dark:text-slate-100 font-medium">
+                            {selectedWorkerInfo.full_name}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-slate-400 dark:text-slate-500">
+                          {workers.length === 0 ? 'Sin trabajadores disponibles' : 'Selecciona un trabajador'}
+                        </span>
+                      )}
+                    </span>
+                    <svg
+                      className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-200 ${showWorkerSelect ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {showWorkerSelect && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowWorkerSelect(false)} />
+                      <div className="absolute z-20 w-full mt-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-premium-lg overflow-hidden animate-scale-in">
+                        <div className="max-h-56 overflow-y-auto p-1.5">
+                          {workers.map((w) => (
+                            <button
+                              key={w.id}
+                              type="button"
+                              onClick={() => { setSelectedWorker(w.id); setShowWorkerSelect(false) }}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-colors ${
+                                selectedWorker === w.id
+                                  ? 'bg-brand-50 dark:bg-brand-500/15'
+                                  : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                              }`}
+                            >
+                              <span className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-accent-600 flex items-center justify-center flex-shrink-0">
+                                <span className="text-xs font-bold text-white">{w.full_name[0].toUpperCase()}</span>
+                              </span>
+                              <span className={`flex-1 truncate text-sm ${selectedWorker === w.id ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}>
+                                {w.full_name}
+                              </span>
+                              {selectedWorker === w.id && (
+                                <svg className="w-4 h-4 text-brand-600 dark:text-brand-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
                 {workers.length === 0 && (
                   <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                     No hay trabajadores aceptados en tu empresa. Añade empleados primero.
