@@ -73,15 +73,40 @@ export default function JoinByLink() {
     try {
       setLoading(true)
       setError('')
-      const { data, error } = await supabase
+
+      let inv = null
+      let companyName = ''
+      let ownerName = ''
+
+      const { data: rpcData, error: rpcError } = await supabase
         .rpc('get_invitation_by_token', { p_token: token })
 
-      if (error || !data || data.length === 0) {
-        setNotFound(true)
-        return
-      }
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        inv = rpcData[0]
+        companyName = inv.company_name || ''
+        ownerName = inv.owner_name || inv.owner_email || ''
+      } else {
+        const { data: memberData, error: memberError } = await supabase
+          .from('company_members')
+          .select('*')
+          .eq('invitation_token', token)
+          .single()
 
-      const inv = data[0]
+        if (memberError || !memberData) {
+          setNotFound(true)
+          return
+        }
+
+        inv = memberData
+
+        const { data: companyData } = await supabase
+          .from('companies')
+          .select('name')
+          .eq('id', inv.company_id)
+          .single()
+
+        companyName = companyData?.name || ''
+      }
 
       if (inv.status === 'accepted') {
         setError('Esta invitación ya fue aceptada')
@@ -94,8 +119,8 @@ export default function JoinByLink() {
       }
 
       setInvitation(inv)
-      setCompany({ name: inv.company_name })
-      setOwnerName(inv.owner_name || inv.owner_email || '')
+      setCompany(companyName ? { name: companyName } : null)
+      setOwnerName(ownerName)
     } catch {
       setNotFound(true)
     } finally {
