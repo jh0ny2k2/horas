@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 
@@ -16,6 +16,10 @@ export default function RegisterForm() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const joinToken = searchParams.get('join')
+
+  useEffect(() => {
+    if (joinToken) localStorage.setItem('pendingJoinToken', joinToken)
+  }, [joinToken])
 
   const inputClass =
     "w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-base pb-3 pl-8 pr-10 focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-brand-500 transition-colors"

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { registerForPushNotifications } from './lib/notifications'
@@ -81,10 +81,33 @@ function MainDashboard() {
   return <Dashboard />
 }
 
+function PendingJoinRedirect() {
+  const { user, loading } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    if (loading || !user) return
+
+    const pending = localStorage.getItem('pendingJoinToken')
+    if (!pending) return
+
+    localStorage.removeItem('pendingJoinToken')
+
+    const target = `/join/${pending}`
+    if (location.pathname !== target) {
+      navigate(target, { replace: true })
+    }
+  }, [user, loading, location.pathname])
+
+  return null
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <PendingJoinRedirect />
         <Routes>
           <Route path="/auth/*" element={<AuthLayout />} />
           <Route path="/join/:token" element={<JoinByLink />} />

@@ -282,10 +282,10 @@ export default function JoinByLink() {
 
         {!error && !user && (
           <div className="space-y-3">
-            <button onClick={() => navigate(`/auth/login?join=${token}`)} className="btn-primary">
+            <button onClick={() => { localStorage.setItem('pendingJoinToken', token); navigate(`/auth/login?join=${token}`) }} className="btn-primary">
               Iniciar sesión y aceptar
             </button>
-            <button onClick={() => navigate(`/auth/register?join=${token}`)} className="btn-secondary">
+            <button onClick={() => { localStorage.setItem('pendingJoinToken', token); navigate(`/auth/register?join=${token}`) }} className="btn-secondary">
               Crear cuenta
             </button>
           </div>
