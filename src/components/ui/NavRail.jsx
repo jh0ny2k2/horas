@@ -1,15 +1,18 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { navItems, isSectionActive } from '../../lib/navItems'
+import { navItems, isSectionActive, getItemLabel } from '../../lib/navItems'
+import { useAuth } from '../../contexts/AuthContext'
 
 export default function NavRail() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { profile } = useAuth()
 
   return (
     <nav className="flex flex-col items-center gap-1.5 py-4 w-20">
       {navItems.map((item) => {
         const isActive = isSectionActive(item.path, location.pathname)
         const isPrimary = item.path === '/register'
+        const label = getItemLabel(item, profile?.role)
 
         return (
           <button
@@ -18,7 +21,7 @@ export default function NavRail() {
             className={`w-full flex flex-col items-center gap-1.5 py-2 rounded-2xl transition-all duration-200 group ${
               isPrimary ? 'mt-1 mb-2' : ''
             }`}
-            aria-label={item.label}
+            aria-label={label}
           >
             <span
               className={`flex items-center justify-center w-14 h-11 rounded-2xl transition-all duration-200 ${
@@ -46,7 +49,7 @@ export default function NavRail() {
                     : 'text-slate-400 dark:text-slate-500'
               }`}
             >
-              {item.label}
+              {label}
             </span>
           </button>
         )

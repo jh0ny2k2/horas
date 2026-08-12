@@ -5,8 +5,11 @@ import LoadingSpinner from '../ui/LoadingSpinner'
 import EmptyState from '../ui/EmptyState'
 
 export default function Payments() {
-  const { user, profile } = useAuth()
+  const { user, profile, company } = useAuth()
+  const isOwner = profile?.role === 'company_owner'
   const [payments, setPayments] = useState([])
+  const [workers, setWorkers] = useState([])
+  const [selectedWorker, setSelectedWorker] = useState('')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [amount, setAmount] = useState('')
@@ -16,17 +19,58 @@ export default function Payments() {
   const [filter, setFilter] = useState('all')
 
   useEffect(() => {
+    if (!user) return
     loadPayments()
-  }, [user])
+  }, [user, company])
+
+  useEffect(() => {
+    if (isOwner && company) {
+      loadWorkers()
+    }
+  }, [isOwner, company])
+
+  const loadWorkers = async () => {
+    try {
+      const { data: members } = await supabase
+        .from('company_members')
+        .select('user_id')
+        .eq('company_id', company.id)
+        .eq('status', 'accepted')
+
+      const ids = (members || []).map(m => m.user_id).filter(Boolean)
+
+      if (!ids.length) {
+        setWorkers([])
+        setSelectedWorker('')
+        return
+      }
+
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', ids)
+
+      const workerList = (profilesData || []).map(p => ({
+        id: p.id,
+        full_name: p.full_name || 'Trabajador',
+      }))
+
+      setWorkers(workerList)
+      setSelectedWorker(prev => (workerList.some(w => w.id === prev) ? prev : (workerList[0]?.id || '')))
+    } catch {
+      setWorkers([])
+      setSelectedWorker('')
+    }
+  }
 
   const loadPayments = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('payment_date', { ascending: false })
+      let query = supabase.from('payments').select('*')
+      query = isOwner && company
+        ? query.eq('company_id', company.id)
+        : query.eq('user_id', user.id)
+      const { data, error } = await query.order('payment_date', { ascending: false })
 
       if (error) throw error
       setPayments(data || [])
@@ -40,13 +84,14 @@ export default function Payments() {
   const handleAdd = async (e) => {
     e.preventDefault()
     if (!amount || Number(amount) <= 0) return
+    if (isOwner && !selectedWorker) return
 
     try {
       setSaving(true)
       const { error } = await supabase
         .from('payments')
         .insert({
-          user_id: user.id,
+          user_id: isOwner ? selectedWorker : user.id,
           company_id: profile?.company_id || null,
           amount: Number(amount),
           description: description || null,
@@ -93,14 +138,18 @@ export default function Payments() {
     .filter(p => new Date(p.payment_date).getFullYear() === now.getFullYear())
     .reduce((sum, p) => sum + Number(p.amount), 0)
 
-  if (loading) return <LoadingSpinner text="Cargando cobros..." />
+  const workerNames = Object.fromEntries(workers.map(w => [w.id, w.full_name]))
+
+  if (loading) return <LoadingSpinner text={isOwner ? 'Cargando pagos...' : 'Cargando cobros...'} />
 
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-bold text-slate-800 dark:text-white">Cobros</h2>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Gestiona tus pagos recibidos</p>
+          <h2 className="text-lg font-bold text-slate-800 dark:text-white">{isOwner ? 'Pagos' : 'Cobros'}</h2>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            {isOwner ? 'Gestiona los pagos a tus trabajadores' : 'Gestiona tus pagos recibidos'}
+          </p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
@@ -141,16 +190,18 @@ export default function Payments() {
 
         <div className="relative">
           <div className="flex items-start justify-between gap-3">
-            <p className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">Cobrado</p>
+            <p className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">{isOwner ? 'Pagado' : 'Cobrado'}</p>
             <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-white/15 text-white whitespace-nowrap">
-              {filteredPayments.length} {filteredPayments.length === 1 ? 'cobro' : 'cobros'}
+              {filteredPayments.length} {filteredPayments.length === 1 ? (isOwner ? 'pago' : 'cobro') : (isOwner ? 'pagos' : 'cobros')}
             </span>
           </div>
           <p className="text-4xl font-extrabold text-white mt-2 tabular-nums">
             €{totalAmount.toFixed(2)}
           </p>
           <p className="text-[11px] text-white/60 mt-1">
-            {filter === 'month' ? 'Cobrado este mes' : filter === 'year' ? 'Cobrado este año' : 'Total cobrado'}
+            {filter === 'month' ? (isOwner ? 'Pagado este mes' : 'Cobrado este mes')
+              : filter === 'year' ? (isOwner ? 'Pagado este año' : 'Cobrado este año')
+              : (isOwner ? 'Total pagado' : 'Total cobrado')}
           </p>
 
           <div className="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-white/15">
@@ -170,6 +221,27 @@ export default function Payments() {
       {showForm && (
         <div className="card animate-slide-up border-emerald-200/40 dark:border-emerald-500/20">
           <form onSubmit={handleAdd} className="space-y-4">
+            {isOwner && (
+              <div>
+                <label className="label">Trabajador</label>
+                <select
+                  value={selectedWorker}
+                  onChange={(e) => setSelectedWorker(e.target.value)}
+                  className="input-field"
+                  required
+                >
+                  <option value="" disabled>Selecciona un trabajador</option>
+                  {workers.map((w) => (
+                    <option key={w.id} value={w.id}>{w.full_name}</option>
+                  ))}
+                </select>
+                {workers.length === 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    No hay trabajadores aceptados en tu empresa. Añade empleados primero.
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <label className="label">Importe (€)</label>
               <input
@@ -214,8 +286,8 @@ export default function Payments() {
                 className="input-field"
               />
             </div>
-            <button type="submit" disabled={saving || !amount} className="btn-primary w-full">
-              {saving ? 'Guardando...' : 'Registrar cobro'}
+            <button type="submit" disabled={saving || !amount || (isOwner && !selectedWorker)} className="btn-primary w-full">
+              {saving ? 'Guardando...' : (isOwner ? 'Registrar pago' : 'Registrar cobro')}
             </button>
           </form>
         </div>
@@ -229,8 +301,10 @@ export default function Payments() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
           }
-          title="No hay cobros registrados"
-          description="Registra tu primer cobro para llevar un seguimiento."
+          title={isOwner ? 'No hay pagos registrados' : 'No hay cobros registrados'}
+          description={isOwner
+            ? 'Registra el primer pago a un trabajador para llevar el seguimiento.'
+            : 'Registra tu primer cobro para llevar un seguimiento.'}
         />
       ) : (
         <div className="card p-0 overflow-hidden">
@@ -244,9 +318,12 @@ export default function Payments() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
-                    {payment.description || 'Cobro registrado'}
+                    {payment.description || (isOwner ? 'Pago a trabajador' : 'Cobro registrado')}
                   </p>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    {isOwner && workerNames[payment.user_id] && (
+                      <span className="text-slate-500 dark:text-slate-400">para {workerNames[payment.user_id]} · </span>
+                    )}
                     {formatPaymentDate(payment.payment_date)}
                   </p>
                 </div>

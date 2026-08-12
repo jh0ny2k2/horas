@@ -1,20 +1,23 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { navItems, isSectionActive } from '../../lib/navItems'
+import { navItems, isSectionActive, getItemLabel } from '../../lib/navItems'
+import { useAuth } from '../../contexts/AuthContext'
 
 const sideItems = navItems.filter(item => item.path !== '/register' && item.path !== '/settings')
 
 export default function BottomNavBar() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { profile } = useAuth()
 
   const renderItem = (item) => {
     const isActive = isSectionActive(item.path, location.pathname)
+    const label = getItemLabel(item, profile?.role)
     return (
       <button
         key={item.path}
         onClick={() => navigate(item.path)}
         className="flex flex-col items-center gap-0.5 min-w-0 flex-1 pt-1"
-        aria-label={item.label}
+        aria-label={label}
       >
         <span
           className={`relative flex items-center justify-center w-11 h-9 rounded-2xl transition-colors duration-200 ${
@@ -52,7 +55,7 @@ export default function BottomNavBar() {
               : 'text-slate-400 dark:text-slate-500 font-medium'
           }`}
         >
-          {item.label}
+          {label}
         </span>
       </button>
     )
