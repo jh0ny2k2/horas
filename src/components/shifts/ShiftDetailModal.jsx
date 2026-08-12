@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
 import { formatHours } from '../../lib/calculations'
+import ShiftStatusBadge from './ShiftStatusBadge'
 
 export default function ShiftDetailModal({ shift, onClose, onEdit, onDelete }) {
   if (!shift) return null
@@ -31,6 +32,9 @@ export default function ShiftDetailModal({ shift, onClose, onEdit, onDelete }) {
           </div>
 
           <div className="text-center mb-5">
+            <div className="flex justify-center mb-2">
+              <ShiftStatusBadge shift={shift} />
+            </div>
             <p className="text-4xl font-extrabold bg-gradient-to-r from-brand-600 to-accent-600 dark:from-brand-400 dark:to-accent-400 bg-clip-text text-transparent tabular-nums">
               {formatHours(shift.total_hours)}
             </p>
@@ -87,6 +91,22 @@ export default function ShiftDetailModal({ shift, onClose, onEdit, onDelete }) {
                 <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">Notas</p>
                 <p className="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-3 leading-relaxed">
                   {shift.notes}
+                </p>
+              </div>
+            </>
+          )}
+
+          {shift.review_comment && (
+            <>
+              <div className="h-px bg-slate-100 dark:bg-slate-800 my-4" />
+              <div>
+                <p className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${shift.rejected ? 'text-rose-500 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  {shift.rejected ? 'Motivo del rechazo' : 'Comentario de la empresa'}
+                </p>
+                <p className={`text-sm leading-relaxed rounded-2xl p-3 ${shift.rejected
+                  ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                  : 'bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300'}`}>
+                  {shift.review_comment}
                 </p>
               </div>
             </>

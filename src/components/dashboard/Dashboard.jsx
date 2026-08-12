@@ -6,6 +6,7 @@ import SummaryCard from './SummaryCard'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import EmptyState from '../ui/EmptyState'
 import ErrorMessage from '../ui/ErrorMessage'
+import ShiftStatusBadge from '../shifts/ShiftStatusBadge'
 import { useNavigate } from 'react-router-dom'
 
 export default function Dashboard() {
@@ -47,7 +48,7 @@ export default function Dashboard() {
   const { start: monthStart, end: monthEnd } = getMonthRange(today)
 
   const approvedShifts = shifts.filter(s => s.approved)
-  const pendingShifts = shifts.filter(s => !s.approved)
+  const pendingShifts = shifts.filter(s => !s.approved && !s.rejected)
   const pendingCount = pendingShifts.length
 
   const todayShifts = approvedShifts.filter(s => s.work_date === todayStr)
@@ -270,9 +271,11 @@ export default function Dashboard() {
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                     shift.approved
                       ? 'bg-emerald-50 dark:bg-emerald-500/10'
-                      : 'bg-amber-50 dark:bg-amber-500/10'
+                      : shift.rejected
+                        ? 'bg-rose-50 dark:bg-rose-500/10'
+                        : 'bg-amber-50 dark:bg-amber-500/10'
                   }`}>
-                    <svg className={`w-5 h-5 ${shift.approved ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className={`w-5 h-5 ${shift.approved ? 'text-emerald-600 dark:text-emerald-400' : shift.rejected ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
@@ -281,13 +284,7 @@ export default function Dashboard() {
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
                         {formatDate(shift.work_date)}
                       </p>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                        shift.approved
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400'
-                      }`}>
-                        {shift.approved ? 'Aprobado' : 'Pendiente'}
-                      </span>
+                      <ShiftStatusBadge shift={shift} />
                     </div>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">
                       {shift.start_time.slice(0, 5)} – {shift.end_time.slice(0, 5)}

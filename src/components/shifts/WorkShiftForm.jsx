@@ -86,6 +86,8 @@ export default function WorkShiftForm({ editShift = null, onSaved }) {
         notes: formData.notes || '',
         total_hours: total,
         approved: isIndividual,
+        rejected: false,
+        review_comment: null,
       }
 
       if (isEditing) {

@@ -48,3 +48,9 @@ export function startOfWeek(date) {
   monday.setHours(0, 0, 0, 0)
   return monday
 }
+
+export function shiftStatus(shift) {
+  if (shift?.approved) return 'approved'
+  if (shift?.rejected) return 'rejected'
+  return 'pending'
+}

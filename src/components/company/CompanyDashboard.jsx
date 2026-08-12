@@ -72,7 +72,7 @@ export default function CompanyDashboard() {
     return acc + (empHours * Number(emp.hourly_rate || 0))
   }, 0)
 
-  const pendingShifts = employeeShifts.filter(s => !s.approved)
+  const pendingShifts = employeeShifts.filter(s => !s.approved && !s.rejected)
   const pendingCount = pendingShifts.length
 
   if (loading) return <LoadingSpinner text="Cargando empresa..." />

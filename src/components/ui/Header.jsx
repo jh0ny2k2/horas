@@ -63,6 +63,7 @@ export default function Header() {
         .from('work_shifts')
         .select('*', { count: 'exact', head: true })
         .eq('approved', false)
+        .eq('rejected', false)
         .in('user_id', userIds)
 
       setPendingCount(count || 0)
