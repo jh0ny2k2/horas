@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { getWeekRange, getMonthRange, formatHours } from '../../lib/calculations'
+import useCompanyData from '../../hooks/useCompanyData'
 import ShiftDetailModal from '../shifts/ShiftDetailModal'
 import WorkShiftForm from '../shifts/WorkShiftForm'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -16,7 +17,9 @@ const FILTERS = {
 }
 
 export default function History() {
-  const { user } = useAuth()
+  const { user, profile, company } = useAuth()
+  const isCompany = profile?.role === 'company_owner' && !!company
+  const companyData = useCompanyData(isCompany ? company : null)
   const [shifts, setShifts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -25,10 +28,12 @@ export default function History() {
   const [editingShift, setEditingShift] = useState(null)
   const [viewingShift, setViewingShift] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [employeeFilter, setEmployeeFilter] = useState('all')
 
   useEffect(() => {
+    if (isCompany) return
     loadShifts()
-  }, [user])
+  }, [user, isCompany])
 
   const loadShifts = async () => {
     try {
@@ -50,8 +55,34 @@ export default function History() {
     }
   }
 
+  const allShifts = isCompany ? companyData.shifts : shifts
+  const employees = companyData.employees
+
+  const employeeById = useMemo(() => {
+    return Object.fromEntries((employees || []).map(e => [e.user_id, e]))
+  }, [employees])
+
+  const employeeName = (userId) => {
+    const emp = employeeById[userId]
+    return emp?.email?.split('@')[0] || 'Empleado'
+  }
+
+  const handleApprove = async (shiftId) => {
+    const { error } = await supabase.from('work_shifts').update({ approved: true }).eq('id', shiftId)
+    if (!error) companyData.reload()
+  }
+
+  const handleReject = async (shiftId) => {
+    const { error } = await supabase.from('work_shifts').update({ approved: false }).eq('id', shiftId)
+    if (!error) companyData.reload()
+  }
+
   const filteredShifts = useMemo(() => {
-    let result = [...shifts]
+    let result = [...allShifts]
+
+    if (isCompany && employeeFilter !== 'all') {
+      result = result.filter(s => s.user_id === employeeFilter)
+    }
 
     if (filter === FILTERS.WEEK) {
       const { start, end } = getWeekRange()
@@ -70,7 +101,7 @@ export default function History() {
     }
 
     return result
-  }, [shifts, filter, dateRange])
+  }, [allShifts, isCompany, employeeFilter, filter, dateRange])
 
   const groupedShifts = useMemo(() => {
     const groups = {}
@@ -133,21 +164,25 @@ export default function History() {
     )
   }
 
-  if (loading) return <LoadingSpinner text="Cargando historial..." />
+  if (isCompany ? companyData.loading : loading) {
+    return <LoadingSpinner text={isCompany ? 'Cargando turnos de la empresa...' : 'Cargando historial...'} />
+  }
 
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-bold text-slate-800 dark:text-white">Historial</h2>
+        <h2 className="text-lg font-bold text-slate-800 dark:text-white">
+          {isCompany ? 'Turnos de la empresa' : 'Historial'}
+        </h2>
         <p className="text-xs text-slate-400 dark:text-slate-500">
-          {shifts.length} registro{shifts.length !== 1 ? 's' : ''} en total
+          {allShifts.length} registro{allShifts.length !== 1 ? 's' : ''} en total
         </p>
       </div>
 
       <ErrorMessage message={error} onDismiss={() => setError('')} />
 
       {/* Filters */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1">
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
         {[
           { key: FILTERS.ALL, label: 'Todo' },
           { key: FILTERS.WEEK, label: 'Semana' },
@@ -168,6 +203,27 @@ export default function History() {
           Rango
         </button>
       </div>
+
+      {/* Employee filter (company) */}
+      {isCompany && employees.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+          <button
+            onClick={() => setEmployeeFilter('all')}
+            className={`chip ${employeeFilter === 'all' ? 'chip-active' : ''}`}
+          >
+            Todos
+          </button>
+          {employees.map(e => (
+            <button
+              key={e.id}
+              onClick={() => setEmployeeFilter(e.user_id)}
+              className={`chip ${employeeFilter === e.user_id ? 'chip-active' : ''}`}
+            >
+              {e.email?.split('@')[0] || 'Empleado'}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Date range picker */}
       {(filter === 'range' || dateRange.from) && (
@@ -252,11 +308,24 @@ export default function History() {
 
                 <div className="card px-4 py-1 divide-y divide-slate-100 dark:divide-slate-800">
                   {dayShifts.map((shift) => (
-                    <button
+                    <div
                       key={shift.id}
                       onClick={() => setViewingShift(shift)}
-                      className="w-full flex items-center gap-3 py-3 text-left group"
+                      className="w-full flex items-center gap-3 py-3 text-left group cursor-pointer"
                     >
+                      {isCompany && (
+                        <div className="flex items-center gap-1.5 min-w-0 flex-shrink-0">
+                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center flex-shrink-0">
+                            <span className="text-[9px] font-bold text-white">
+                              {(employeeById[shift.user_id]?.email || 'E')[0].toUpperCase()}
+                            </span>
+                          </span>
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate max-w-[80px]">
+                            {employeeName(shift.user_id)}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
                           {shift.start_time.slice(0, 5)}
@@ -276,24 +345,50 @@ export default function History() {
 
                       <div className="flex-1" />
 
-                      <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                        shift.approved
-                          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'
-                          : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
-                      }`}>
-                        <span className={`w-1 h-1 rounded-full ${shift.approved ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                        {shift.approved ? 'Aprobado' : 'Pendiente'}
-                      </span>
+                      {isCompany ? (
+                        shift.approved ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleReject(shift.id) }}
+                            className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                            title="Desaprobar"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleApprove(shift.id) }}
+                            className="p-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
+                            title="Aprobar"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                        )
+                      ) : (
+                        <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          shift.approved
+                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'
+                            : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                        }`}>
+                          <span className={`w-1 h-1 rounded-full ${shift.approved ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                          {shift.approved ? 'Aprobado' : 'Pendiente'}
+                        </span>
+                      )}
 
                       <span className="font-bold text-slate-700 dark:text-slate-200 tabular-nums">
                         {formatHours(shift.total_hours)}
                         <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 ml-0.5">h</span>
                       </span>
 
-                      <svg className="w-4 h-4 text-slate-300 dark:text-slate-600 transition-transform group-active:translate-x-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
+                      {!isCompany && (
+                        <svg className="w-4 h-4 text-slate-300 dark:text-slate-600 transition-transform group-active:translate-x-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -308,7 +403,9 @@ export default function History() {
             </svg>
           }
           title="Sin registros"
-          description={filter !== FILTERS.ALL ? 'No hay registros en este período.' : 'Aún no has registrado ninguna jornada.'}
+          description={isCompany
+            ? 'No hay turnos registrados todavía.'
+            : filter !== FILTERS.ALL ? 'No hay registros en este período.' : 'Aún no has registrado ninguna jornada.'}
         />
       )}
 
@@ -316,8 +413,8 @@ export default function History() {
       <ShiftDetailModal
         shift={viewingShift}
         onClose={() => setViewingShift(null)}
-        onEdit={handleEdit}
-        onDelete={(s) => { setViewingShift(null); setDeleteConfirm(s) }}
+        onEdit={isCompany ? null : handleEdit}
+        onDelete={isCompany ? null : (s) => { setViewingShift(null); setDeleteConfirm(s) }}
       />
 
       {/* Delete confirmation modal */}

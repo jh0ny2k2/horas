@@ -2,17 +2,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatHours, startOfWeek } from '../../lib/calculations'
+import useCompanyData from '../../hooks/useCompanyData'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import EmptyState from '../ui/EmptyState'
 import SummaryCard from '../dashboard/SummaryCard'
-
-const VIEW_OPTIONS = [
-  { key: 'daily', label: 'Diario' },
-  { key: 'weekly', label: 'Semanal' },
-  { key: 'monthly', label: 'Mensual' },
-  { key: 'custom', label: 'Rango' },
-]
 
 const QUICK_RANGES = [
   { key: '7d', label: '7 días', days: 7 },
@@ -22,20 +16,37 @@ const QUICK_RANGES = [
 ]
 
 export default function Statistics() {
-  const { user, profile } = useAuth()
+  const { user, profile, company } = useAuth()
+  const isCompany = profile?.role === 'company_owner' && !!company
+  const companyData = useCompanyData(isCompany ? company : null)
   const hourlyRate = Number(profile?.hourly_rate || 0)
   const isIndividual = profile?.role === 'individual'
   const [shifts, setShifts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('weekly')
+  const [view, setView] = useState(() => (isCompany ? 'workers' : 'weekly'))
   const [quickRange, setQuickRange] = useState('30d')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [showAll, setShowAll] = useState(false)
 
+  const VIEW_OPTIONS = isCompany
+    ? [
+      { key: 'workers', label: 'Trabajadores' },
+      { key: 'weekly', label: 'Semanal' },
+      { key: 'monthly', label: 'Mensual' },
+      { key: 'custom', label: 'Rango' },
+    ]
+    : [
+      { key: 'daily', label: 'Diario' },
+      { key: 'weekly', label: 'Semanal' },
+      { key: 'monthly', label: 'Mensual' },
+      { key: 'custom', label: 'Rango' },
+    ]
+
   useEffect(() => {
+    if (isCompany) return
     loadShifts()
-  }, [user])
+  }, [user, isCompany])
 
   const loadShifts = async () => {
     try {
@@ -55,12 +66,22 @@ export default function Statistics() {
     }
   }
 
+  const allShifts = isCompany
+    ? (companyData.shifts || []).filter(s => s.approved)
+    : shifts
+
+  const employees = companyData.employees
+
+  const employeeById = useMemo(() => {
+    return Object.fromEntries((employees || []).map(e => [e.user_id, e]))
+  }, [employees])
+
   const filteredShifts = useMemo(() => {
     if (showAll || view === 'custom') {
       if (view === 'custom' && dateFrom && dateTo) {
-        return shifts.filter(s => s.work_date >= dateFrom && s.work_date <= dateTo)
+        return allShifts.filter(s => s.work_date >= dateFrom && s.work_date <= dateTo)
       }
-      return shifts
+      return allShifts
     }
 
     const now = new Date()
@@ -70,11 +91,13 @@ export default function Statistics() {
     cutoff.setDate(cutoff.getDate() - daysBack)
     const cutoffStr = cutoff.toISOString().split('T')[0]
 
-    return shifts.filter(s => s.work_date >= cutoffStr)
-  }, [shifts, view, quickRange, dateFrom, dateTo, showAll])
+    return allShifts.filter(s => s.work_date >= cutoffStr)
+  }, [allShifts, view, quickRange, dateFrom, dateTo, showAll])
 
-  const { chartData, stats } = useMemo(() => {
-    if (filteredShifts.length === 0) return { chartData: [], stats: null }
+  const { chartData, stats, perEmployee } = useMemo(() => {
+    if (filteredShifts.length === 0) return { chartData: [], stats: null, perEmployee: [] }
+
+    if (isCompany && view === 'workers') return processByEmployee(filteredShifts, employees)
 
     if (view === 'daily') return processDaily(filteredShifts)
     if (view === 'weekly') return processWeekly(filteredShifts)
@@ -91,29 +114,57 @@ export default function Statistics() {
     }
 
     return processWeekly(filteredShifts)
-  }, [filteredShifts, view, dateFrom, dateTo])
+  }, [filteredShifts, view, dateFrom, dateTo, isCompany, employees])
 
-  const periodLabel = view === 'daily' ? 'día' : view === 'weekly' ? 'semana' : view === 'monthly' ? 'mes' : 'período'
+  const periodLabel = view === 'workers'
+    ? 'trabajador'
+    : view === 'daily'
+      ? 'día'
+      : view === 'weekly'
+        ? 'semana'
+        : view === 'monthly'
+          ? 'mes'
+          : 'período'
+
+  const countUnit = stats
+    ? (view === 'workers'
+      ? (stats.totalDays === 1 ? 'trabajador' : 'trabajadores')
+      : (stats.totalDays === 1 ? 'día' : 'días'))
+    : ''
+
   const totalCount = filteredShifts.length
 
   const periodEarned = hourlyRate > 0 ? stats?.totalHours * hourlyRate : 0
-  const totalEarned = hourlyRate > 0 ? shifts.reduce((acc, s) => acc + Number(s.total_hours), 0) * hourlyRate : 0
+  const totalEarned = hourlyRate > 0 ? allShifts.reduce((acc, s) => acc + Number(s.total_hours), 0) * hourlyRate : 0
 
-  const chartTitle = view === 'daily'
-    ? 'Horas por día'
-    : view === 'weekly'
-      ? 'Horas por semana'
-      : view === 'monthly'
-        ? 'Horas por mes'
-        : 'Horas en período'
+  const companyCost = isCompany
+    ? filteredShifts.reduce((acc, s) => {
+      const emp = employeeById[s.user_id]
+      return acc + Number(s.total_hours) * Number(emp?.hourly_rate || 0)
+    }, 0)
+    : 0
 
-  if (loading) return <LoadingSpinner text="Cargando estadísticas..." />
+  const chartTitle = view === 'workers'
+    ? 'Horas por trabajador'
+    : view === 'daily'
+      ? 'Horas por día'
+      : view === 'weekly'
+        ? 'Horas por semana'
+        : view === 'monthly'
+          ? 'Horas por mes'
+          : 'Horas en período'
 
-  if (shifts.length === 0) {
+  if (isCompany ? companyData.loading : loading) {
+    return <LoadingSpinner text={isCompany ? 'Cargando estadísticas de la empresa...' : 'Cargando estadísticas...'} />
+  }
+
+  if (allShifts.length === 0) {
     return (
       <div className="animate-fade-in">
         <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Estadísticas</h2>
-        <p className="text-sm text-slate-400 dark:text-slate-500 mb-6">Visualiza tus horas trabajadas</p>
+        <p className="text-sm text-slate-400 dark:text-slate-500 mb-6">
+          {isCompany ? 'Horas y coste de tu equipo' : 'Visualiza tus horas trabajadas'}
+        </p>
         <EmptyState
           icon={
             <svg className="w-7 h-7 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -121,7 +172,9 @@ export default function Statistics() {
             </svg>
           }
           title="No hay datos suficientes"
-          description="Registra algunas jornadas para ver tus estadísticas."
+          description={isCompany
+            ? 'Tus trabajadores aún no tienen horas aprobadas.'
+            : 'Registra algunas jornadas para ver tus estadísticas.'}
         />
       </div>
     )
@@ -130,8 +183,14 @@ export default function Statistics() {
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-bold text-slate-800 dark:text-white">Estadísticas</h2>
-        <p className="text-xs text-slate-400 dark:text-slate-500">Visualiza tus horas trabajadas</p>
+        <div>
+          <h2 className="text-lg font-bold text-slate-800 dark:text-white">
+            {isCompany ? 'Estadísticas de la empresa' : 'Estadísticas'}
+          </h2>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            {isCompany ? 'Horas y coste de tu equipo' : 'Visualiza tus horas trabajadas'}
+          </p>
+        </div>
       </div>
 
       {/* View selector */}
@@ -200,9 +259,11 @@ export default function Statistics() {
 
             <div className="relative">
               <div className="flex items-start justify-between gap-3">
-                <p className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">Horas registradas</p>
+                <p className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">
+                  {isCompany ? 'Horas aprobadas' : 'Horas registradas'}
+                </p>
                 <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-white/15 text-white whitespace-nowrap">
-                  {stats.totalDays} {stats.totalDays === 1 ? 'día' : 'días'}
+                  {stats.totalDays} {countUnit}
                 </span>
               </div>
               <p className="text-4xl font-extrabold text-white mt-2 tabular-nums">
@@ -277,6 +338,38 @@ export default function Statistics() {
             </div>
           )}
 
+          {/* Per worker breakdown (company) */}
+          {isCompany && view === 'workers' && perEmployee.length > 0 && (
+            <div className="card">
+              <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3">Horas y coste por trabajador</h3>
+              <div className="space-y-2">
+                {perEmployee.map(e => {
+                  const maxHours = Math.max(...perEmployee.map(x => x.hours))
+                  const pct = maxHours > 0 ? (e.hours / maxHours) * 100 : 0
+                  return (
+                    <div key={e.userId}>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center flex-shrink-0">
+                            <span className="text-[9px] font-bold text-white">{e.name[0].toUpperCase()}</span>
+                          </span>
+                          <span className="text-slate-500 dark:text-slate-400 truncate">{e.name}</span>
+                        </span>
+                        <span className="flex-shrink-0">
+                          <span className="font-semibold text-slate-700 dark:text-slate-200 tabular-nums">{formatHours(e.hours)}h</span>
+                          <span className="text-slate-400 dark:text-slate-500 ml-2 tabular-nums">€{e.cost.toFixed(2)}</span>
+                        </span>
+                      </div>
+                      <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-brand-500 to-accent-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-3 stagger">
             <SummaryCard
@@ -293,23 +386,45 @@ export default function Statistics() {
               icon="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
               color="brand"
             />
-            {!isIndividual && (
+            {isCompany ? (
               <>
                 <SummaryCard
-                  label="Ganado en el período"
-                  value={`€${periodEarned.toFixed(2)}`}
-                  subtitle={hourlyRate > 0 ? `${formatHours(stats.totalHours)} a ${hourlyRate.toFixed(2)}€/h` : 'Configura tu tarifa en Ajustes'}
+                  label="Coste del período"
+                  value={`€${companyCost.toFixed(2)}`}
+                  subtitle={`${formatHours(stats.totalHours)} horas`}
                   icon="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-                  color="green"
-                />
-                <SummaryCard
-                  label="Total acumulado"
-                  value={`€${totalEarned.toFixed(2)}`}
-                  subtitle={`${formatHours(shifts.reduce((acc, s) => acc + Number(s.total_hours), 0))} en total`}
-                  icon="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                   color="purple"
                 />
+                <SummaryCard
+                  label="Coste acumulado"
+                  value={`€${(allShifts.reduce((acc, s) => {
+                    const emp = employeeById[s.user_id]
+                    return acc + Number(s.total_hours) * Number(emp?.hourly_rate || 0)
+                  }, 0)).toFixed(2)}`}
+                  subtitle={`${formatHours(allShifts.reduce((acc, s) => acc + Number(s.total_hours), 0))} en total`}
+                  icon="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  color="green"
+                />
               </>
+            ) : (
+              !isIndividual && (
+                <>
+                  <SummaryCard
+                    label="Ganado en el período"
+                    value={`€${periodEarned.toFixed(2)}`}
+                    subtitle={hourlyRate > 0 ? `${formatHours(stats.totalHours)} a ${hourlyRate.toFixed(2)}€/h` : 'Configura tu tarifa en Ajustes'}
+                    icon="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+                    color="green"
+                  />
+                  <SummaryCard
+                    label="Total acumulado"
+                    value={`€${totalEarned.toFixed(2)}`}
+                    subtitle={`${formatHours(allShifts.reduce((acc, s) => acc + Number(s.total_hours), 0))} en total`}
+                    icon="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    color="purple"
+                  />
+                </>
+              )
             )}
           </div>
         </>
@@ -326,6 +441,56 @@ export default function Statistics() {
       )}
     </div>
   )
+}
+
+function processByEmployee(shifts, employees) {
+  const empMap = {}
+  employees.forEach(e => {
+    empMap[e.user_id] = { hours: 0, count: 0, email: e.email, hourly_rate: Number(e.hourly_rate || 0) }
+  })
+
+  shifts.forEach(s => {
+    if (!empMap[s.user_id]) {
+      empMap[s.user_id] = { hours: 0, count: 0, email: null, hourly_rate: 0 }
+    }
+    empMap[s.user_id].hours += Number(s.total_hours)
+    empMap[s.user_id].count++
+  })
+
+  const entries = Object.entries(empMap)
+    .filter(([, v]) => v.count > 0)
+    .sort((a, b) => b[1].hours - a[1].hours)
+
+  const chartData = entries.map(([, v]) => ({
+    label: shortName(v.email),
+    hours: Math.round(v.hours * 100) / 100,
+  }))
+
+  const totalHours = entries.reduce((a, [, v]) => a + v.hours, 0)
+  const totalCost = entries.reduce((a, [, v]) => a + v.hours * v.hourly_rate, 0)
+  const average = entries.length > 0 ? totalHours / entries.length : 0
+  const best = entries[0] || null
+
+  const perEmployee = entries.map(([userId, v]) => ({
+    userId,
+    name: nameFromEmail(v.email),
+    hours: v.hours,
+    cost: v.hours * v.hourly_rate,
+    hourlyRate: v.hourly_rate,
+  }))
+
+  return {
+    chartData,
+    perEmployee,
+    stats: {
+      totalHours,
+      totalCost,
+      average,
+      bestValue: best ? best[1].hours : 0,
+      bestLabel: best ? nameFromEmail(best[1].email) : '',
+      totalDays: entries.length,
+    },
+  }
 }
 
 function processDaily(shifts) {
@@ -423,6 +588,15 @@ function processMonthly(shifts) {
     chartData,
     stats: { average, bestValue, bestLabel, totalDays: sorted.length, totalHours },
   }
+}
+
+function nameFromEmail(email) {
+  return email ? email.split('@')[0] : 'Empleado'
+}
+
+function shortName(email) {
+  const n = nameFromEmail(email)
+  return n.length > 8 ? n.slice(0, 8) + '…' : n
 }
 
 function formatDayLabel(dateStr) {
