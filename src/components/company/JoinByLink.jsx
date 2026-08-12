@@ -142,14 +142,25 @@ export default function JoinByLink() {
 
       if (updateError) throw updateError
 
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      const profileFields = {
+        company_id: invitation.company_id,
+        role: 'employee',
+        hourly_rate: invitation.hourly_rate,
+      }
+
+      if (!existingProfile) {
+        profileFields.full_name = user.email?.split('@')[0] || ''
+      }
+
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({
-          company_id: invitation.company_id,
-          role: 'employee',
-          hourly_rate: invitation.hourly_rate,
-        })
-        .eq('id', user.id)
+        .upsert({ id: user.id, ...profileFields }, { onConflict: 'id' })
 
       if (profileError) throw profileError
 
